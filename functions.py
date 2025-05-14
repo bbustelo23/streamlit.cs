@@ -7,25 +7,25 @@ import pandas as pd
 load_dotenv()
 
 def connect_to_supabase():
-    """
-    Connects to the Supabase PostgreSQL database using transaction pooler details
-    and credentials stored in environment variables.
-    """
     try:
-        # Retrieve connection details from environment variables
         host = os.getenv("SUPABASE_DB_HOST")
-        port = os.getenv("SUPABASE_DB_PORT")
+        port_raw = os.getenv("SUPABASE_DB_PORT")
         dbname = os.getenv("SUPABASE_DB_NAME")
         user = os.getenv("SUPABASE_DB_USER")
         password = os.getenv("SUPABASE_DB_PASSWORD")
 
-        # Check if all required environment variables are set
-        if not all([host, port, dbname, user, password]):
-            print("Error: One or more Supabase environment variables are not set.")
-            print("Please set SUPABASE_DB_HOST, SUPABASE_DB_PORT, SUPABASE_DB_NAME, SUPABASE_DB_USER, and SUPABASE_DB_PASSWORD.")
+        print(f"SUPABASE_DB_PORT raw value: '{port_raw}'")
+
+        if not all([host, port_raw, dbname, user, password]):
+            print("❌ Error: Falta una o más variables de entorno.")
             return None
 
-        # Establish the connection
+        try:
+            port = int(port_raw)
+        except ValueError:
+            print(f"❌ Error: El valor del puerto no es un número válido: '{port_raw}'")
+            return None
+
         conn = psycopg2.connect(
             host=host,
             port=port,
@@ -33,11 +33,12 @@ def connect_to_supabase():
             user=user,
             password=password,
         )
-        print("Successfully connected to Supabase database.")
+        print("✅ Conexión exitosa")
         return conn
-    except psycopg2.Error as e:
-        print(f"Error connecting to Supabase database: {e}")
+    except Exception as e:
+        print(f"❌ Error general al conectar: {e}")
         return None
+
 
 
 def execute_query(query, conn=None, is_select=True):
@@ -104,3 +105,32 @@ def add_employee(nombre, dni, telefono, fecha_contratacion, salario):
     params = (nombre, dni, telefono, fecha_contratacion, salario)
     
     return execute_query(query, params=params, is_select=False)
+
+def get_paciente(dni):
+    query = "SELECT * FROM pacientes WHERE dni = %s"
+    return execute_query(query, (dni,), is_select=True)
+
+
+def insert_paciente(nombre, fecha_nacimiento, sexo, contraseña, dni, conn=None):
+    query = """
+    INSERT INTO pacientes (nombre, fecha_nacimiento, sexo, contraseña, dni)
+    VALUES (%s, %s, %s, %s, %s);
+    """
+    try:
+        close_conn = False
+        if conn is None:
+            conn = connect_to_supabase()
+            close_conn = True
+
+        cursor = conn.cursor()
+        cursor.execute(query, (nombre, fecha_nacimiento, sexo, contraseña, int(dni)))
+        conn.commit()
+        cursor.close()
+        if close_conn:
+            conn.close()
+        return True
+    except Exception as e:
+        print(f"Error al insertar paciente: {e}")
+        if conn:
+            conn.rollback()
+        return False
