@@ -22,7 +22,7 @@ if not st.session_state.logged_in:
     st.write("Con MedCheck, puedes registrar y seguir tu progreso en cuanto a salud, mejorar tu estilo de vida y tomar decisiones informadas sobre tu bienestar.")
 else:
     st.title("MedCheck - Inicio")
-    st.subheader(f"¡Bienvenido!")
+    st.subheader("¡Bienvenido!")
     st.write("Usá la barra lateral para navegar.")
 
 
@@ -81,11 +81,11 @@ else:
 
     with col1:
         if st.button("👤 Ir a mi Perfil"):
-            st.switch_page("pages/perfil.py")  # Asegurate de que exista esa página
+            st.switch_page("pages/Perfil.py")  # Asegurate de que exista esa página
 
     with col2:
         if st.button("📅 Ver Calendario"):
-            st.switch_page("pages/calendario.py")  # Asegurate de que exista esa página
+            st.switch_page("pages/Calendario.py")  # Asegurate de que exista esa página
 
     with col3:
         if st.button("🏥 Ver mi historial"):

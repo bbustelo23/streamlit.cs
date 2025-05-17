@@ -7,25 +7,25 @@ import pandas as pd
 load_dotenv()
 
 def connect_to_supabase():
+    """
+    Connects to the Supabase PostgreSQL database using transaction pooler details
+    and credentials stored in environment variables.
+    """
     try:
+        # Retrieve connection details from environment variables
         host = os.getenv("SUPABASE_DB_HOST")
-        port_raw = os.getenv("SUPABASE_DB_PORT")
+        port = int(os.getenv("SUPABASE_DB_PORT"))
         dbname = os.getenv("SUPABASE_DB_NAME")
         user = os.getenv("SUPABASE_DB_USER")
         password = os.getenv("SUPABASE_DB_PASSWORD")
 
-        print(f"SUPABASE_DB_PORT raw value: '{port_raw}'")
-
-        if not all([host, port_raw, dbname, user, password]):
-            print("❌ Error: Falta una o más variables de entorno.")
+        # Check if all required environment variables are set
+        if not all([host, port, dbname, user, password]):
+            print("Error: One or more Supabase environment variables are not set.")
+            print("Please set SUPABASE_DB_HOST, SUPABASE_DB_PORT, SUPABASE_DB_NAME, SUPABASE_DB_USER, and SUPABASE_DB_PASSWORD.")
             return None
 
-        try:
-            port = int(port_raw)
-        except ValueError:
-            print(f"❌ Error: El valor del puerto no es un número válido: '{port_raw}'")
-            return None
-
+        # Establish the connection
         conn = psycopg2.connect(
             host=host,
             port=port,
@@ -33,10 +33,10 @@ def connect_to_supabase():
             user=user,
             password=password,
         )
-        print("✅ Conexión exitosa")
+        print("Successfully connected to Supabase database.")
         return conn
-    except Exception as e:
-        print(f"❌ Error general al conectar: {e}")
+    except psycopg2.Error as e:
+        print(f"Error connecting to Supabase database: {e}")
         return None
 
 
