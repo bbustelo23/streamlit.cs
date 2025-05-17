@@ -95,25 +95,13 @@ def get_paciente(dni):
 
 
 def insert_paciente(nombre, fecha_nacimiento, sexo, contraseña, dni, conn=None):
+    """
+    Inserta un nuevo paciente en la base de datos.
+    Devuelve True si se insertó correctamente, False si hubo un error.
+    """
     query = """
     INSERT INTO pacientes (nombre, fecha_nacimiento, sexo, contraseña, dni)
     VALUES (%s, %s, %s, %s, %s);
     """
-    try:
-        close_conn = False
-        if conn is None:
-            conn = connect_to_supabase()
-            close_conn = True
-
-        cursor = conn.cursor()
-        cursor.execute(query, (nombre, fecha_nacimiento, sexo, contraseña, int(dni)))
-        conn.commit()
-        cursor.close()
-        if close_conn:
-            conn.close()
-        return True
-    except Exception as e:
-        print(f"Error al insertar paciente: {e}")
-        if conn:
-            conn.rollback()
-        return False
+    params = (nombre, fecha_nacimiento, sexo, contraseña, int(dni))
+    return execute_query(query, params=params, conn=conn, is_select=False)
