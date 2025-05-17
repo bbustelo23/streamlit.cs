@@ -41,57 +41,40 @@ def connect_to_supabase():
 
 
 
-def execute_query(query, conn=None, is_select=True):
+def execute_query(query, params=None, conn=None, is_select=True):
     """
     Executes a SQL query and returns the results as a pandas DataFrame for SELECT queries,
     or executes DML operations (INSERT, UPDATE, DELETE) and returns success status.
-    
-    Args:
-        query (str): The SQL query to execute
-        conn (psycopg2.extensions.connection, optional): Database connection object.
-            If None, a new connection will be established.
-        is_select (bool, optional): Whether the query is a SELECT query (True) or 
-            a DML operation like INSERT/UPDATE/DELETE (False). Default is True.
-            
-    Returns:
-        pandas.DataFrame or bool: A DataFrame containing the query results for SELECT queries,
-            or True for successful DML operations, False otherwise.
     """
     try:
-        # Create a new connection if one wasn't provided
         close_conn = False
         if conn is None:
             conn = connect_to_supabase()
             close_conn = True
-        
-        # Create cursor and execute query
+
         cursor = conn.cursor()
-        cursor.execute(query)
-        
-        if is_select:
-            # Fetch all results for SELECT queries
-            results = cursor.fetchall()
-            
-            # Get column names from cursor description
-            colnames = [desc[0] for desc in cursor.description]
-            
-            # Create DataFrame
-            df = pd.DataFrame(results, columns=colnames)
-            result = df
+
+        # Ejecutar consulta con o sin parámetros
+        if params:
+            cursor.execute(query, params)
         else:
-            # For DML operations, commit changes and return success
+            cursor.execute(query)
+
+        if is_select:
+            results = cursor.fetchall()
+            colnames = [desc[0] for desc in cursor.description]
+            result = pd.DataFrame(results, columns=colnames)
+        else:
             conn.commit()
             result = True
-        
-        # Close cursor and connection if we created it
+
         cursor.close()
         if close_conn:
             conn.close()
-            
+
         return result
     except Exception as e:
         print(f"Error executing query: {e}")
-        # Rollback any changes if an error occurred during DML operation
         if conn and not is_select:
             conn.rollback()
         return pd.DataFrame() if is_select else False
