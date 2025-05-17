@@ -66,6 +66,7 @@ if not st.session_state.logged_in:
                 if new_password == confirm_password and new_DNI:
                     st.session_state.logged_in = True
                     st.session_state.dni = new_DNI
+                    st.session_state.nombre = new_name
                     st.success("¡Registro exitoso!")
                     st.session_state.show_register = False
                     insert_paciente(new_name, fecha_nacimiento, sexo, new_password, int(new_DNI))
