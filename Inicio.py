@@ -69,7 +69,7 @@ if not st.session_state.logged_in:
                     st.session_state.nombre = new_name
                     st.success("¡Registro exitoso!")
                     st.session_state.show_register = False
-                    insert_paciente(new_name, fecha_nacimiento, sexo, new_password, int(new_DNI))
+                    insert_paciente(new_name, fecha_nacimiento, sexo, new_password, int(new_DNI), encuesta_completada=False)
                 else:
                     st.error("Las contraseñas no coinciden o faltan campos.")
 
