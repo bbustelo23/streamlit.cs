@@ -1,6 +1,6 @@
 import streamlit as st
 import datetime
-from functions import update_encuesta_completada, insert_historial
+from fEncuesta import update_encuesta_completada, insert_historial
 
 st.title("📝 Encuesta médica")
 
