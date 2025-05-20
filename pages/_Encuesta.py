@@ -25,16 +25,27 @@ sigue_dieta = st.radio("¿Seguís alguna dieta específica?", ["Sí", "No"], ind
 if sigue_dieta == "Sí":
     tipo_dieta = st.text_input("¿Qué tipo de dieta?")
 
+
+antecedentes_familiares = st.radio("¿Tenés antecedentes familiares de alguna enfermedad?", ["Sí", "No"], index=1)
+if antecedentes_familiares == "Sí":
+    st.markdown("### Detalles de antecedentes")
     
-#antecedentes_familiares = st.radio("¿Tenés antecedentes familiares de alguna enfermedad?", ["Sí", "No"], index=1)
-#if antecedentes_familiares == "Sí":
-#    st.markdown("### Detalles de antecedentes")
-#    cantidad = st.number_input("¿Cuántos antecedentes querés declarar?", min_value=1, step=1)
-#    antecedentes = []
-#    for i in range(cantidad):
-#        familiar = st.text_input(f"Familiar #{i+1} (Ej: madre, padre, abuelo)")
-#        diagnostico = st.text_input(f"Diagnóstico del familiar #{i+1}")
-#        antecedentes.append((familiar, diagnostico))
+    cantidad = st.number_input("¿Cuántos antecedentes querés declarar?", min_value=1, step=1)
+    
+    enfermedades = []
+    familiares = []
+    
+    for i in range(cantidad):
+        col1, col2 = st.columns(2)
+        with col1:
+            familiar = st.text_input(f"Familiar #{i+1} (Ej: madre, padre, abuelo)", key=f"familiar_{i}")
+        with col2:
+            diagnostico = st.text_input(f"Diagnóstico del familiar #{i+1}", key=f"diagnostico_{i}")
+        
+        familiares.append(familiar)
+        enfermedades.append(diagnostico)
+
+
 
 submit = st.button("Enviar encuesta") 
 from datetime import date
@@ -47,11 +58,13 @@ if submit:
         alcoholico=(alcoholico == "Sí"),
         peso=peso,
         condicion=condicion if tiene_condicion == "Sí" else None,
-        medicacion_cronica = medicacion if tiene_condicion == "Sí" and toma_medicacion == "Sí" else None,
+        medicacion_cronica=medicacion if tiene_condicion == "Sí" and toma_medicacion == "Sí" else None,
         dieta=(sigue_dieta == "Sí"),
+        antecedentes_enfermedad=enfermedades if antecedentes_familiares == "Sí" else None,
+        antecedentes_familiar=familiares if antecedentes_familiares == "Sí" else None
     )
 
-    update_encuesta_completada(dni=st.session_state.dni)
+    update_encuesta_completada(dni=st.session_state.dni) 
 
     st.success("¡Encuesta completada y guardada con éxito!")
     st.switch_page("Inicio.py")

@@ -9,18 +9,24 @@ def get_paciente(dni):
     query = "SELECT * FROM pacientes WHERE dni = %s"
     return execute_query(query, (dni,), is_select=True)
 
-
-def insert_paciente(nombre, fecha_nacimiento, sexo, contraseña, dni, encuesta_completada, conn=None):
-    """
-    Inserta un nuevo paciente en la base de datos.
-    Devuelve True si se insertó correctamente, False si hubo un error.
-    """
+def insert_historial(dni, fecha_completado, fumador, alcoholico, peso,
+                     condicion=None, medicacion_cronica=None, dieta=False,
+                     antecedentes_enfermedad=None, antecedentes_familiar=None, conn=None):
     query = """
-    INSERT INTO pacientes (nombre, fecha_nacimiento, sexo, contraseña, dni, encuesta_completada)
-    VALUES (%s, %s, %s, %s, %s, %s);
+    INSERT INTO historial (
+        dni, fecha_completado, fumador, alcoholico, peso, condicion, medicacion_cronica,
+        dieta, antecedentes_familiares_enfermedad, antecedentes_familiares_familiar
+    ) 
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
     """
-    params = (nombre, fecha_nacimiento, sexo, contraseña, int(dni), encuesta_completada)
+    params = (
+        dni, fecha_completado, fumador, alcoholico, peso,
+        condicion, medicacion_cronica, dieta,
+        antecedentes_enfermedad, antecedentes_familiar
+    )
     return execute_query(query, params=params, conn=conn, is_select=False)
+
+
 
 
 def get_id_paciente_por_dni(dni, conn=None):
