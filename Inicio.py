@@ -1,7 +1,7 @@
 
 import streamlit as st
-from functions import get_paciente
-from functions import insert_paciente
+from fEncuesta import get_paciente
+from fEncuesta import insert_paciente
 
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False

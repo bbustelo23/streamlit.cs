@@ -112,25 +112,6 @@ def guardar_turno(id_paciente, id_medico, fecha, hora, lugar):
     cur.close()
     conn.close()
 
-def render_classic_calendar():
-    dias = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"]
-    st.markdown("<style>table, th, td {border:1px solid #000; text-align: center; font-size: 18px;} th {background-color: #f0f0f0;}</style>", unsafe_allow_html=True)
-    tabla = "<table style='width:100%; table-layout: fixed;'>"
-    tabla += "<tr>" + "".join([f"<th>{dia}</th>" for dia in dias]) + "</tr>"
-    for semana in month_days:
-        tabla += "<tr>"
-        for dia in semana:
-            color = "#eee" if dia.month != current_date.month else "#fff"
-            if dia in dias_con_turnos:
-                color = "#b3e6b3"
-            hoy = date.today()
-            estilo = f"background-color:{color}; padding:15px;"
-            if dia == hoy:
-                estilo += "border: 2px solid #000; font-weight: bold;"
-            tabla += f"<td style='{estilo}'>{dia.day}</td>"
-        tabla += "</tr>"
-    tabla += "</table>"
-    st.markdown(tabla, unsafe_allow_html=True)
 
     # ------------------------
 # 🔍 Obtener días con turnos
