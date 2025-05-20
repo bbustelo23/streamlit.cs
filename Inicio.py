@@ -1,7 +1,7 @@
 
 import streamlit as st
 from fEncuesta import get_paciente
-from fEncuesta import insert_paciente
+from fEncuesta import insert_historial
 
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False

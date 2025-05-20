@@ -1,6 +1,5 @@
 import streamlit as st
-import datetime
-from fEncuesta import update_encuesta_completada, insert_historial
+from fEncuesta import *
 
 st.title("📝 Encuesta médica")
 
@@ -60,8 +59,8 @@ if submit:
         condicion=condicion if tiene_condicion == "Sí" else None,
         medicacion_cronica=medicacion if tiene_condicion == "Sí" and toma_medicacion == "Sí" else None,
         dieta=(sigue_dieta == "Sí"),
-        antecedentes_enfermedad=enfermedades if antecedentes_familiares == "Sí" else None,
-        antecedentes_familiar=familiares if antecedentes_familiares == "Sí" else None
+        antecedentes_enfermedad = ", ".join(enfermedades) if antecedentes_familiares == "Sí" else None,
+        antecedentes_familiar = ", ".join(familiares) if antecedentes_familiares == "Sí" else None
     )
 
     update_encuesta_completada(dni=st.session_state.dni) 

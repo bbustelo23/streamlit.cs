@@ -11,11 +11,13 @@ def get_paciente(dni):
 
 def insert_historial(dni, fecha_completado, fumador, alcoholico, peso,
                      condicion=None, medicacion_cronica=None, dieta=False,
-                     antecedentes_enfermedad=None, antecedentes_familiar=None, conn=None):
+                     antecedentes_enfermedad=None, antecedentes_familiar=None,
+                     conn=None):
     query = """
     INSERT INTO historial (
-        dni, fecha_completado, fumador, alcoholico, peso, condicion, medicacion_cronica,
-        dieta, antecedentes_familiares_enfermedad, antecedentes_familiares_familiar
+        dni, fecha_completado, fumador, alcoholico, peso, condicion,
+        medicacion_cronica, dieta, antecedentes_familiares_enfermedad,
+        antecedentes_familiares_familiar
     ) 
     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
     """

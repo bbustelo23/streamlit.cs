@@ -1,5 +1,7 @@
 
 import streamlit as st
+
+
 st.session_state.setdefault("nombre", None)
 st.session_state.setdefault("dni", None)
 st.session_state.setdefault("encuesta_completada", False)
