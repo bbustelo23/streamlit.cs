@@ -3,7 +3,7 @@ import calendar
 import pandas as pd
 from datetime import datetime, timedelta, date
 import psycopg2
-from fCalendario import obtener_dias_con_turnos, obtener_turnos_mes, eliminar_turno, editar_turno, obtener_o_crear_paciente, obtener_o_crear_medico, guardar_turno
+from fCalendario import obtener_todos_los_medicos, obtener_dias_con_turnos, obtener_turnos_mes, eliminar_turno, editar_turno, obtener_o_crear_paciente, obtener_o_crear_medico, guardar_turno
 
 # archivo: calendario_turnos_app.py
 
@@ -82,18 +82,46 @@ with st.form("form_turno"):
     fecha = st.date_input("Fecha del turno", value=date.today())
     hora = st.time_input("Hora del turno", value=datetime.now().time())
     dni_paciente = st.text_input("DNI del paciente")
-    nombre_medico = st.text_input("Nombre del médico")
-    lugar = st.text_input("Lugar del turno")
+    st.markdown("#### Seleccionar un médico o cargar uno nuevo")
+
+    medicos_disponibles = obtener_todos_los_medicos()
+    opciones_medicos = [m[1] for m in medicos_disponibles]
+    opciones_medicos.append("➕ Ingresar un médico nuevo")
+
+    opcion_elegida = st.selectbox("Médico:", opciones_medicos)
+
+    if opcion_elegida == "➕ Ingresar un médico nuevo":
+        col_m1, col_m2 = st.columns(2)
+        with col_m1:
+            nombre_medico = st.text_input("Nombre del nuevo médico")
+        with col_m2:
+            especialidad_medico = st.text_input("Especialidad del médico")
+        usar_medico_existente = False
+    else:
+        id_medico = [m[0] for m in medicos_disponibles if m[1] == opcion_elegida][0]
+        usar_medico_existente = True
+
+
+    lugar = st.text_input("Lugar del turno (y lugar donde atiende el médico)")
+
     enviar = st.form_submit_button("Guardar Turno")
 
     if enviar:
-        if dni_paciente.strip() and nombre_medico.strip() and lugar.strip():
+        if dni_paciente.strip() and lugar.strip():
             id_paciente = obtener_o_crear_paciente(dni_paciente.strip())
-            id_medico = obtener_o_crear_medico(nombre_medico.strip())
-            guardar_turno(id_paciente, id_medico, fecha, lugar)
-            st.success("✅ Turno guardado correctamente")
+
+            if usar_medico_existente:
+                guardar_turno(id_paciente, id_medico, fecha, hora, lugar)
+                st.success("✅ Turno guardado correctamente")
+            else:
+                if nombre_medico.strip() and especialidad_medico.strip():
+                    id_medico = obtener_o_crear_medico(nombre_medico.strip(), especialidad_medico.strip(), lugar.strip())
+                    guardar_turno(id_paciente, id_medico, fecha, lugar)
+                    st.success("✅ Turno guardado correctamente")
+                else:
+                    st.warning("Por favor completá nombre y especialidad del nuevo médico.")
         else:
-            st.warning("Por favor completá todos los campos.")
+            st.warning("Por favor completá DNI del paciente y lugar del turno.")
 
 # ------------------------
 # 📋 Listado + Edición y Eliminación

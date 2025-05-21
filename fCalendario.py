@@ -12,9 +12,9 @@ def obtener_dias_con_turnos(año, mes):
     conn = connect_to_supabase()
     cur = conn.cursor()
     cur.execute("""
-        SELECT DISTINCT DATE(fecha_turno)
+        SELECT DISTINCT DATE(fecha)
         FROM Turnos
-        WHERE EXTRACT(MONTH FROM fecha_turno) = %s AND EXTRACT(YEAR FROM fecha_turno) = %s
+        WHERE EXTRACT(MONTH FROM fecha) = %s AND EXTRACT(YEAR FROM fecha) = %s
     """, (mes, año))
     dias = [row[0] for row in cur.fetchall()]
     cur.close()
@@ -28,7 +28,7 @@ def obtener_turnos_mes(año, mes):
     conn = connect_to_supabase()
     cur = conn.cursor()
     cur.execute("""
-        SELECT t.id_turno, t.fecha_turno, p.nombre AS paciente, m.nombre AS medico, t.lugar
+        SELECT t.id_turno, t.fecha, p.nombre AS paciente, m.nombre AS medico, t.lugar
         FROM Turnos t
         JOIN Pacientes p ON t.id_paciente = p.id_paciente
         JOIN Medicos m ON t.id_medico = m.id_medico
@@ -51,7 +51,7 @@ def eliminar_turno(id_turno):
 def editar_turno(id_turno, nueva_fecha, nuevo_lugar):
     conn = connect_to_supabase()
     cur = conn.cursor()
-    cur.execute("UPDATE Turnos SET fecha_turno = %s, lugar = %s WHERE id_turno = %s", (nueva_fecha, nuevo_lugar, id_turno))
+    cur.execute("UPDATE Turnos SET fecha = %s, lugar = %s WHERE id_turno = %s", (nueva_fecha, nuevo_lugar, id_turno))
     conn.commit()
     cur.close()
     conn.close()
@@ -80,25 +80,32 @@ def obtener_o_crear_paciente(dni):
     return id_paciente
 
 
-def obtener_o_crear_medico(nombre):
+def obtener_o_crear_medico(nombre, especialidad, lugar):
     conn = connect_to_supabase()
-    cur = conn.cursor()
+    cursor = conn.cursor()
 
-    # Buscar si el médico ya existe
-    cur.execute("SELECT id_medico FROM Medicos WHERE nombre = %s", (nombre,))
-    medico = cur.fetchone()
+    # Verificar si ya existe el médico con ese nombre, especialidad y lugar
+    cursor.execute(
+        "SELECT id_medico FROM Medicos WHERE nombre = %s AND especialidad = %s AND lugar = %s",
+        (nombre, especialidad, lugar)
+    )
+    result = cursor.fetchone()
 
-    if medico:
-        id_medico = medico[0]
+    if result:
+        id_medico = result[0]
     else:
-        # Insertar nuevo médico sin especificar id_medico
-        cur.execute("INSERT INTO Medicos (nombre) VALUES (%s) RETURNING id_medico", (nombre,))
-        id_medico = cur.fetchone()[0]
+        # Insertar nuevo médico si no existe
+        cursor.execute(
+            "INSERT INTO Medicos (nombre, especialidad, lugar) VALUES (%s, %s, %s) RETURNING id_medico",
+            (nombre, especialidad, lugar)
+        )
+        id_medico = cursor.fetchone()[0]
+        conn.commit()
 
-    conn.commit()
-    cur.close()
+    cursor.close()
     conn.close()
     return id_medico
+
 
 
 def guardar_turno(id_paciente, id_medico, fecha, hora, lugar):
@@ -123,9 +130,9 @@ def obtener_dias_con_turnos(año, mes):
 
     cur = conn.cursor()
     cur.execute("""
-        SELECT DISTINCT DATE(fecha_turno)
+        SELECT DISTINCT DATE(fecha)
         FROM Turnos
-        WHERE EXTRACT(MONTH FROM fecha_turno) = %s AND EXTRACT(YEAR FROM fecha_turno) = %s
+        WHERE EXTRACT(MONTH FROM fecha) = %s AND EXTRACT(YEAR FROM fecha) = %s
     """, (mes, año))
     dias = [row[0] for row in cur.fetchall()]
     cur.close()
@@ -139,12 +146,12 @@ def obtener_turnos_mes(año, mes):
     conn = connect_to_supabase()
     cur = conn.cursor()
     cur.execute("""
-        SELECT t.id_turno, t.fecha_turno, p.nombre AS paciente, m.nombre AS medico, t.lugar
+        SELECT t.id_turno, t.fecha, p.nombre AS paciente, m.nombre AS medico, t.lugar
         FROM Turnos t
         JOIN Pacientes p ON t.id_paciente = p.id_paciente
         JOIN Medicos m ON t.id_medico = m.id_medico
-        WHERE EXTRACT(MONTH FROM t.fecha_turno) = %s AND EXTRACT(YEAR FROM t.fecha_turno) = %s
-        ORDER BY t.fecha_turno
+        WHERE EXTRACT(MONTH FROM t.fecha) = %s AND EXTRACT(YEAR FROM t.fecha) = %s
+        ORDER BY t.fecha
     """, (mes, año))
     datos = cur.fetchall()
     cur.close()
@@ -162,7 +169,7 @@ def eliminar_turno(id_turno):
 def editar_turno(id_turno, nueva_fecha, nuevo_lugar):
     conn = connect_to_supabase()
     cur = conn.cursor()
-    cur.execute("UPDATE Turnos SET fecha_turno = %s, lugar = %s WHERE id_turno = %s", (nueva_fecha, nuevo_lugar, id_turno))
+    cur.execute("UPDATE Turnos SET fecha = %s, lugar = %s WHERE id_turno = %s", (nueva_fecha, nuevo_lugar, id_turno))
     conn.commit()
     cur.close()
     conn.close()
@@ -217,11 +224,21 @@ def guardar_turno(id_paciente, id_medico, fecha, hora, lugar):
     cur = conn.cursor()
     cur.execute(
     "INSERT INTO Turnos (fecha, hora, id_paciente, id_medico, lugar) VALUES (%s, %s, %s, %s, %s)",
-    (fecha, hora, id_paciente, id_medico))
+    (fecha, hora, id_paciente, id_medico, lugar))
 
     conn.commit()
     cur.close()
     conn.close()
 
-# ------------------------
-# 📅 UI - Calendario
+def obtener_todos_los_medicos():
+    conn = connect_to_supabase()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT id_medico, nombre, especialidad, lugar FROM Medicos")
+    medicos = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+
+    # Retornar una lista de tuplas (id, "Nombre - Especialidad - Lugar")
+    return [(m[0], f"{m[1]} - {m[2]} - {m[3]}") for m in medicos]
