@@ -118,6 +118,9 @@ def guardar_turno(id_paciente, id_medico, fecha, hora, lugar):
 # ------------------------
 def obtener_dias_con_turnos(año, mes):
     conn = connect_to_supabase()
+    if conn is None:
+        raise ConnectionError("No se pudo establecer la conexión a la base de datos.")
+
     cur = conn.cursor()
     cur.execute("""
         SELECT DISTINCT DATE(fecha_turno)

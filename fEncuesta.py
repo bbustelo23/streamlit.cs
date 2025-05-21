@@ -9,6 +9,14 @@ def get_paciente(dni):
     query = "SELECT * FROM pacientes WHERE dni = %s"
     return execute_query(query, (dni,), is_select=True)
 
+def insert_paciente(dni, nombre, fecha_nacimiento, sexo, password, encuesta_completada=False):
+    query = """
+    INSERT INTO pacientes (dni, nombre, fecha_nacimiento, sexo, password, encuesta_completada)
+    VALUES (%s, %s, %s, %s, %s, %s);
+    """
+    params = (dni, nombre, fecha_nacimiento, sexo, password, encuesta_completada)
+    return execute_query(query, params=params, conn=conn, is_select=False)
+
 
 def insert_historial(dni, fecha_completado, fumador, alcoholico, peso,
                      condicion=None, medicacion_cronica=None, dieta=False,
