@@ -39,10 +39,10 @@ def insert_historial(dni, fecha_completado, fumador, alcoholico, peso,
 
 def get_id_paciente_por_dni(dni, conn=None):
     query = "SELECT id_paciente FROM pacientes WHERE dni = %s;"
-    st.write("Ejecutando consulta con dni:", dni)
+    #st.write("Ejecutando consulta con dni:", dni)
     
     result = execute_query(query, params=(dni,), conn=conn, is_select=True)
-    st.write("Resultado de la consulta:", result)
+    #st.write("Resultado de la consulta:", result)
     
     if result is not None and not result.empty:
         return result.iloc[0]['id_paciente']
@@ -114,3 +114,10 @@ def update_encuesta_completada(dni, conn=None):
     """
     params = (dni,)
     return execute_query(query, params=params, conn=conn, is_select=False)
+
+def get_encuesta_completada(dni, conn=None):
+    query = """
+    SELECT encuesta_realizada FROM pacientes WHERE dni = %s;
+    """
+    params = (dni,)
+    return execute_query(query, params=params, conn=conn, is_select=True)

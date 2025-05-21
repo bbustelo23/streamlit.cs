@@ -1,13 +1,23 @@
 import streamlit as st
-from fEncuesta import insert_historial, update_encuesta_completada
+from fEncuesta import insert_historial, update_encuesta_completada, get_encuesta_completada
+from functions import connect_to_supabase
+
+conn = connect_to_supabase()
 
 st.title("📝 Encuesta médica")
 
-if "logged_in" not in st.session_state or not st.session_state.logged_in:
-    st.warning("Tenés que iniciar sesión primero.")
+dni = st.session_state.get("dni")
+
+if not dni:
+    st.warning("No hay un DNI cargado en sesión.")
     st.stop()
 
-    
+encuesta_completada = get_encuesta_completada(dni, conn=conn)
+
+if encuesta_completada:
+    st.warning("Ya completaste la encuesta.")
+    st.stop()
+
 fumador = st.radio("¿Fumás?", ["Sí", "No"], index=1)
 alcoholico = st.radio("¿Consumís alcohol?", ["Sí", "No"], index=1)
 peso = st.number_input("¿Cuál es tu peso actual (kg)?", min_value=0.0, step=0.1) 

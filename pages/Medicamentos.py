@@ -14,6 +14,14 @@ if not dni:
     st.warning("No hay un DNI cargado en sesión.")
     st.stop()
 
+if "encuesta_completada" not in st.session_state or not st.session_state.encuesta_completada:
+    st.warning("Antes de continuar, necesitamos que completes una breve encuesta sobre tu salud y hábitos.")
+    if st.button("📝 Completar Encuesta"):
+        st.switch_page("pages/_Encuesta.py")   # Ajustá el path según la estructura de tu app
+
+    st.stop()
+
+
 st.subheader("Medicamentos actuales")
 
 med_actuales = get_medicamentos(dni=dni, solo_actuales=True, conn=conn)
@@ -44,15 +52,17 @@ st.markdown("---")
 st.subheader("➕ Agregar nuevo medicamento")
 
 with st.form("nuevo_medicamento"):
-    nombre = st.text_input("Nombre del medicamento")
-    dosis = st.text_input("Dosis (ej: 500mg)")
-    frecuencia = st.text_input("Frecuencia (ej: 1 vez al día)")
+    nombre = st.text_input("Marca del medicamento")
+    droga = st.text_input("Droga (ej: paracetamol)")
+    gramaje_mg = st.number_input("Gramaje (en mg)", min_value=0.0, step=0.1)
+    dosis = st.text_input("Frecuencia (ej: 1 vez al día)")
     motivo = st.text_input("Motivo (enfermedad crónica, aguda, anticonceptivo, etc.)")
     fecha_inicio = st.date_input("Fecha de inicio", date.today())
+    fecha_fin = st.date_input("Fecha de finalización", date.today())
     enviar = st.form_submit_button("Guardar")
 
     if enviar:
-        insertar_medicamento(dni, nombre, dosis, frecuencia, motivo, fecha_inicio, conn=conn)
+        insertar_medicamento(dni, droga, nombre, gramaje_mg, dosis, motivo, fecha_inicio, fecha_fin, conn=conn)
         st.success("Medicamento agregado correctamente.")
         st.rerun()
 
@@ -65,7 +75,7 @@ if med_historial.empty:
     st.info("Aún no hay medicamentos finalizados.")
 else:
     st.dataframe(
-        med_historial[["nombre", "dosis", "frecuencia", "motivo", "inicio", "fin"]],
+        med_historial[["nombre", "dosis", "frecuencia", "motivo", "fecha_inicio", "fecha_fin"]],
         use_container_width=True,
         hide_index=True,
         column_config={
@@ -73,7 +83,7 @@ else:
             "dosis": "Dosis",
             "frecuencia": "Frecuencia",
             "motivo": "Motivo",
-            "inicio": "Desde",
-            "fin": "Hasta"
+            "fecha_inicio": "Desde",
+            "fecha_fin": "Hasta"
         }
     )

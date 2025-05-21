@@ -2,17 +2,16 @@
 import streamlit as st
 
 
-st.session_state.setdefault("nombre", None)
-st.session_state.setdefault("dni", None)
-st.session_state.setdefault("encuesta_completada", False)
-
 # --- Page Config ---
 st.set_page_config(page_title="Inicio - MedCheck", page_icon="🏠", layout="wide")
-
+st.title("👤 Perfil")
 # --- Verificar si el usuario está logueado ---
-if "logged_in" not in st.session_state or not st.session_state.logged_in:
-    st.warning("Tenés que iniciar sesión primero.")
+dni = st.session_state.get("dni")
+
+if not dni:
+    st.warning("No hay un DNI cargado en sesión.")
     st.stop()
+
 
 # --- Verificar si completó la encuesta ---
 if "encuesta_completada" not in st.session_state or not st.session_state.encuesta_completada:

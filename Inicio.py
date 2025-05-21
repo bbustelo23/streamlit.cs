@@ -95,7 +95,7 @@ else:
 
     with col4:
         if st.button("💊 Ver mis medicamentos"):
-            st.switch_page("pages/medicamentos.py")  # Asegurate de que exista esa página
+            st.switch_page("pages/Medicamentos.py")  # Asegurate de que exista esa página
 
 # --- Opción para cerrar sesión ---
     st.markdown("---")

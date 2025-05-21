@@ -9,8 +9,20 @@ from fCalendario import obtener_dias_con_turnos, obtener_turnos_mes, eliminar_tu
 
 # 📅 UI - Calendario
 # ------------------------
-st.set_page_config(layout="centered")
+
 st.title("📅 Calendario de Turnos Médicos")
+dni = st.session_state.get("dni")
+
+if not dni:
+    st.warning("No hay un DNI cargado en sesión.")
+    st.stop()
+
+if "encuesta_completada" not in st.session_state or not st.session_state.encuesta_completada:
+    st.warning("Antes de continuar, necesitamos que completes una breve encuesta sobre tu salud y hábitos.")
+    if st.button("📝 Completar Encuesta"):
+        st.switch_page("pages/_Encuesta.py")   # Ajustá el path según la estructura de tu app
+
+    st.stop()
 
 if "current_date" not in st.session_state:
     st.session_state.current_date = datetime.today().replace(day=1)
