@@ -51,9 +51,11 @@ def get_id_paciente_por_dni(dni, conn=None):
         return None
 
 
+from datetime import date
+
 def insert_historial(
     dni,
-    fecha_completado,
+    fecha_completado=None,
     peso=None,
     fumador=False,
     alcoholico=False,
@@ -67,7 +69,10 @@ def insert_historial(
     antecedentes_familiares_familiar=None,
     conn=None
 ):
-    id_paciente = get_id_paciente_por_dni(dni, conn=conn)
+    if fecha_completado is None:
+        fecha_completado = date.today()
+
+    id_paciente = int(get_id_paciente_por_dni(dni, conn=conn))
     if id_paciente is None:
         raise ValueError(f"No se encontró paciente con DNI {dni}")
 
@@ -75,8 +80,8 @@ def insert_historial(
     medicacion_db = medicacion_cronica if condicion else None
 
     query = """
-    INSERT INTO historial 
-        (id_paciente, fecha, peso, fumador, alcoholico, dieta, actividad_fisica,
+    INSERT INTO historial_medico
+        (id_paciente, fecha_completado, peso, fumador, alcoholico, dieta, actividad_fisica,
          condicion, medicacion_cronica, antecedentes_familiares_enfermedad, antecedentes_familiares_familiar)
     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
     """
@@ -96,8 +101,6 @@ def insert_historial(
 
     return execute_query(query, params=params, conn=conn, is_select=False)
 
-
-    return execute_query(query, params=params, conn=conn, is_select=False)
 
 
 def update_encuesta_completada(dni, conn=None):
