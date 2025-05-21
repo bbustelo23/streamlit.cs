@@ -4,6 +4,10 @@ import pandas as pd
 from datetime import datetime, timedelta, date
 import psycopg2
 from fCalendario import obtener_todos_los_medicos, obtener_dias_con_turnos, obtener_turnos_mes, eliminar_turno, editar_turno, obtener_o_crear_paciente, obtener_o_crear_medico, guardar_turno
+from fEncuesta import get_encuesta_completada
+from functions import connect_to_supabase
+
+conn = connect_to_supabase()
 
 # archivo: calendario_turnos_app.py
 
@@ -17,12 +21,15 @@ if not dni:
     st.warning("No hay un DNI cargado en sesión.")
     st.stop()
 
-if "encuesta_completada" not in st.session_state or not st.session_state.encuesta_completada:
+encuesta_completada = get_encuesta_completada(dni, conn=conn)
+
+if not encuesta_completada.empty and not encuesta_completada.iloc[0]["encuesta_realizada"]:
     st.warning("Antes de continuar, necesitamos que completes una breve encuesta sobre tu salud y hábitos.")
     if st.button("📝 Completar Encuesta"):
         st.switch_page("pages/_Encuesta.py")   # Ajustá el path según la estructura de tu app
 
     st.stop()
+
 
 if "current_date" not in st.session_state:
     st.session_state.current_date = datetime.today().replace(day=1)

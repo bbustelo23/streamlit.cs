@@ -14,7 +14,7 @@ if not dni:
 
 encuesta_completada = get_encuesta_completada(dni, conn=conn)
 
-if encuesta_completada:
+if not encuesta_completada.empty and encuesta_completada.iloc[0]["encuesta_realizada"]:
     st.warning("Ya completaste la encuesta.")
     st.stop()
 

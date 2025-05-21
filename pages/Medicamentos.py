@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import date
 from fMedicamentos import get_medicamentos, marcar_medicamento_como_finalizado, insertar_medicamento  # funciones que deberías tener
+from fEncuesta import get_encuesta_completada
 from functions import connect_to_supabase
 
 conn = connect_to_supabase()
@@ -14,12 +15,15 @@ if not dni:
     st.warning("No hay un DNI cargado en sesión.")
     st.stop()
 
-if "encuesta_completada" not in st.session_state or not st.session_state.encuesta_completada:
+encuesta_completada = get_encuesta_completada(dni, conn=conn)
+
+if not encuesta_completada.empty and not encuesta_completada.iloc[0]["encuesta_realizada"]:
     st.warning("Antes de continuar, necesitamos que completes una breve encuesta sobre tu salud y hábitos.")
     if st.button("📝 Completar Encuesta"):
         st.switch_page("pages/_Encuesta.py")   # Ajustá el path según la estructura de tu app
 
     st.stop()
+
 
 
 st.subheader("Medicamentos actuales")
