@@ -3,7 +3,6 @@ import calendar
 import pandas as pd
 from datetime import datetime, timedelta, date
 import psycopg2
-from functions import connect_to_supabase 
 from fCalendario import obtener_dias_con_turnos, obtener_turnos_mes, eliminar_turno, editar_turno, obtener_o_crear_paciente, obtener_o_crear_medico, guardar_turno
 
 # archivo: calendario_turnos_app.py

@@ -9,9 +9,10 @@ def get_paciente(dni):
     query = "SELECT * FROM pacientes WHERE dni = %s"
     return execute_query(query, (dni,), is_select=True)
 
+
 def insert_historial(dni, fecha_completado, fumador, alcoholico, peso,
                      condicion=None, medicacion_cronica=None, dieta=False,
-                     antecedentes_enfermedad=None, antecedentes_familiar=None,
+                     antecedentes_familiares_enfermedad=None, antecedentes_familiares_familiar=None,
                      conn=None):
     query = """
     INSERT INTO historial (
@@ -24,11 +25,8 @@ def insert_historial(dni, fecha_completado, fumador, alcoholico, peso,
     params = (
         dni, fecha_completado, fumador, alcoholico, peso,
         condicion, medicacion_cronica, dieta,
-        antecedentes_enfermedad, antecedentes_familiar
-    )
+        antecedentes_familiares_enfermedad, antecedentes_familiares_familiar)
     return execute_query(query, params=params, conn=conn, is_select=False)
-
-
 
 
 def get_id_paciente_por_dni(dni, conn=None):
@@ -57,22 +55,22 @@ def insert_historial(
     suplementos=None,
     condicion=None,
     medicacion_cronica=None,
+    antecedentes_familiares_enfermedad=None,
+    antecedentes_familiares_familiar=None,
     conn=None
 ):
     id_paciente = get_id_paciente_por_dni(dni, conn=conn)
     if id_paciente is None:
         raise ValueError(f"No se encontró paciente con DNI {dni}")
 
-    #alergias_db = alergias if alergias else "no tiene"
     condicion_db = condicion if condicion else "no tiene"
-    medicacion_db = medicacion if condicion else None
-    #suplementos_db = suplementos if suplementos else "no toma"
+    medicacion_db = medicacion_cronica if condicion else None
 
-   
     query = """
     INSERT INTO historial 
-        (id_paciente, fecha, peso, fumador, alcoholico, dieta, actividad_fisica, condicion, medicacion_cronica)
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
+        (id_paciente, fecha, peso, fumador, alcoholico, dieta, actividad_fisica,
+         condicion, medicacion_cronica, antecedentes_familiares_enfermedad, antecedentes_familiares_familiar)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
     """
     params = (
         id_paciente,
@@ -83,8 +81,13 @@ def insert_historial(
         dieta,
         actividad_fisica,
         condicion_db,
-        medicacion_db
+        medicacion_db,
+        antecedentes_familiares_enfermedad,
+        antecedentes_familiares_familiar
     )
+
+    return execute_query(query, params=params, conn=conn, is_select=False)
+
 
     return execute_query(query, params=params, conn=conn, is_select=False)
 

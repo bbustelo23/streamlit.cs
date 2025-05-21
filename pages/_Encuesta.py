@@ -1,5 +1,5 @@
 import streamlit as st
-from fEncuesta import *
+from fEncuesta import insert_historial, update_encuesta_completada
 
 st.title("📝 Encuesta médica")
 
@@ -41,8 +41,9 @@ if antecedentes_familiares == "Sí":
         with col2:
             diagnostico = st.text_input(f"Diagnóstico del familiar #{i+1}", key=f"diagnostico_{i}")
         
-        familiares.append(familiar)
-        enfermedades.append(diagnostico)
+        if familiar.strip() and diagnostico.strip():
+            familiares.append(familiar.strip())
+            enfermedades.append(diagnostico.strip())
 
 
 
@@ -51,17 +52,17 @@ from datetime import date
 
 if submit:
     insert_historial(
-        dni=st.session_state.dni,
-        fecha_completado=date.today(),
-        fumador=(fumador == "Sí"),
-        alcoholico=(alcoholico == "Sí"),
-        peso=peso,
-        condicion=condicion if tiene_condicion == "Sí" else None,
-        medicacion_cronica=medicacion if tiene_condicion == "Sí" and toma_medicacion == "Sí" else None,
-        dieta=(sigue_dieta == "Sí"),
-        antecedentes_enfermedad = ", ".join(enfermedades) if antecedentes_familiares == "Sí" else None,
-        antecedentes_familiar = ", ".join(familiares) if antecedentes_familiares == "Sí" else None
-    )
+    dni=st.session_state.dni,
+    fecha_completado=date.today(),
+    fumador=(fumador == "Sí"),
+    alcoholico=(alcoholico == "Sí"),
+    peso=peso,
+    condicion=condicion if tiene_condicion == "Sí" else None,
+    medicacion_cronica=medicacion if tiene_condicion == "Sí" and toma_medicacion == "Sí" else None,
+    dieta=(sigue_dieta == "Sí"),
+    antecedentes_familiares_enfermedad=enfermedades if antecedentes_familiares == "Sí" else None,
+    antecedentes_familiares_familiar=familiares if antecedentes_familiares == "Sí" else None
+)
 
     update_encuesta_completada(dni=st.session_state.dni) 
 
