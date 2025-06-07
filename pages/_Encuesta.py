@@ -56,7 +56,6 @@ if antecedentes_familiares == "Sí":
             enfermedades.append(diagnostico.strip())
 
 
-
 submit = st.button("Enviar encuesta") 
 from datetime import date
 
@@ -71,7 +70,7 @@ if submit:
     medicacion_cronica=medicacion if tiene_condicion == "Sí" and toma_medicacion == "Sí" else None,
     dieta=(sigue_dieta == "Sí"),
     antecedentes_familiares_enfermedad=enfermedades if antecedentes_familiares == "Sí" else None,
-    antecedentes_familiares_familiar=familiares if antecedentes_familiares == "Sí" else None
+    antecedentes_familiares_familiar=familiares if antecedentes_familiares == "Sí" else None,
     conn=conn
 )
 
