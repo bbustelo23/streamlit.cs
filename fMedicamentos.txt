@@ -1,0 +1,39 @@
+import streamlit as st
+import pandas as pd
+from datetime import date
+from functions import execute_query
+from fEncuesta import get_id_paciente_por_dni
+
+def get_medicamentos(dni, solo_actuales=False, solo_finalizados=False, conn=None):
+    id_paciente = get_id_paciente_por_dni(dni, conn)
+    query = "SELECT * FROM medicamentos WHERE id_paciente = %s"
+    params = [int(id_paciente)]
+    if solo_actuales:
+        query += " AND fecha_fin IS NULL"
+    if solo_finalizados:
+        query += " AND fecha_fin IS NOT NULL"
+    return pd.read_sql(query, conn, params=params)
+
+def marcar_medicamento_como_finalizado(id_medicamento, conn=None):
+    query = "UPDATE medicamentos SET fecha_fin = %s WHERE id = %s"
+    execute_query(query, params=(date.today(), id_medicamento), conn=conn)
+
+import json # Importante para manejar el JSON
+
+def insertar_medicamento(dni, droga, nombre, gramaje_mg, motivo, fecha_inicio, fecha_fin,
+                         dosis_cantidad, dosis_unidad, frecuencia_tipo, frecuencia_valor, conn=None):
+    id_paciente = int(get_id_paciente_por_dni(dni, conn))
+
+    # Convertir el diccionario de frecuencia_valor a un string JSON para la DB
+    frecuencia_valor_json = json.dumps(frecuencia_valor) if frecuencia_valor else None
+
+    query = """
+        INSERT INTO medicamentos (id_paciente, droga, nombre, gramaje_mg, motivo, fecha_inicio, fecha_fin,
+                                  dosis_cantidad, dosis_unidad, frecuencia_tipo, frecuencia_valor)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    """
+    params = (id_paciente, droga, nombre, gramaje_mg, motivo, fecha_inicio, fecha_fin,
+              dosis_cantidad, dosis_unidad, frecuencia_tipo, frecuencia_valor_json)
+    execute_query(query, params, conn=conn)
+
+# No te olvides de actualizar la llamada a esta función en el frontend!

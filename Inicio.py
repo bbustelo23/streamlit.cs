@@ -4,6 +4,7 @@ from fEncuesta import get_paciente
 from fEncuesta import insert_historial
 from fEncuesta import insert_paciente
 
+
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "show_register" not in st.session_state:
@@ -104,3 +105,5 @@ else:
         st.session_state.pop("dni", None)
         st.success("Sesión cerrada. Volvé a la página principal.")
         st.switch_page("Inicio.py") # Asegurate que sea la página de inicio/login
+
+
