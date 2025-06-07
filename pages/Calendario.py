@@ -3,7 +3,7 @@ import calendar
 import pandas as pd
 from datetime import datetime, timedelta, date
 import psycopg2
-from fCalendario import obtener_todos_los_medicos, obtener_dias_con_turnos, obtener_turnos_mes, eliminar_turno, editar_turno, obtener_o_crear_paciente, obtener_o_crear_medico, guardar_turno
+from fCalendario import obtener_todos_los_medicos, obtener_lugares_por_medico, obtener_dias_con_turnos, obtener_turnos_mes, eliminar_turno, editar_turno, obtener_o_crear_paciente, obtener_o_crear_medico, guardar_turno
 from fEncuesta import get_encuesta_completada
 from functions import connect_to_supabase
 
@@ -11,10 +11,10 @@ conn = connect_to_supabase()
 
 # archivo: calendario_turnos_app.py
 
-# 📅 UI - Calendario
+# 🗕️ UI - Calendario
 # ------------------------
 
-st.title("📅 Calendario de Turnos Médicos")
+st.title("🗕️ Calendario de Turnos Médicos")
 dni = st.session_state.get("dni")
 
 if not dni:
@@ -52,7 +52,8 @@ current_date = st.session_state.current_date
 st.subheader(current_date.strftime("%B %Y").upper())
 
 # Colorear días con turnos
-dias_con_turnos = obtener_dias_con_turnos(current_date.year, current_date.month)
+
+dias_con_turnos = obtener_dias_con_turnos(current_date.year, current_date.month, dni)
 
 # Render calendario visual
 cal = calendar.Calendar(firstweekday=6)
@@ -78,52 +79,65 @@ def render_classic_calendar():
     tabla += "</table>"
     st.markdown(tabla, unsafe_allow_html=True)
 
-
 render_classic_calendar()
 
 # ------------------------
 # ➕ Agendar Turno
+
+if "agregando_nuevo_medico" not in st.session_state:
+    st.session_state.agregando_nuevo_medico = False
 # ------------------------
 st.markdown("### ➕ Agendar Turno Médico")
+
+medicos_disponibles = obtener_todos_los_medicos()
+opciones_medicos = [m[1] for m in medicos_disponibles] + ["➕ Ingresar un médico nuevo"]
+opcion_elegida = st.selectbox("Médico", opciones_medicos, key="selector_medico")
+
+
+if opcion_elegida == "➕ Ingresar un médico nuevo":
+    st.session_state.agregando_nuevo_medico = True
+else:
+    st.session_state.agregando_nuevo_medico = False
+    
+
 with st.form("form_turno"):
     fecha = st.date_input("Fecha del turno", value=date.today())
     hora = st.time_input("Hora del turno", value=datetime.now().time())
     dni_paciente = st.text_input("DNI del paciente")
-    st.markdown("#### Seleccionar un médico o cargar uno nuevo")
+    
 
-    medicos_disponibles = obtener_todos_los_medicos()
-    opciones_medicos = [m[1] for m in medicos_disponibles]
-    opciones_medicos.append("➕ Ingresar un médico nuevo")
 
-    opcion_elegida = st.selectbox("Médico:", opciones_medicos)
-
-    if opcion_elegida == "➕ Ingresar un médico nuevo":
-        col_m1, col_m2 = st.columns(2)
+    if st.session_state.agregando_nuevo_medico:
+        col_m1, col_m2, col_m3= st.columns(3)
         with col_m1:
-            nombre_medico = st.text_input("Nombre del nuevo médico")
+            nombre_medico = st.text_input("Nombre del médico")
         with col_m2:
             especialidad_medico = st.text_input("Especialidad del médico")
-        usar_medico_existente = False
+        
+        with col_m3:
+            lugar_seleccionado = st.text_input("Lugar del turno")
+        usar_medico_existente = False  
     else:
-        id_medico = [m[0] for m in medicos_disponibles if m[1] == opcion_elegida][0]
         usar_medico_existente = True
+        id_medico = [m[0] for m in medicos_disponibles if m[1] == opcion_elegida][0]
+        lugares= obtener_lugares_por_medico(id_medico)
+        lugar_seleccionado = st.selectbox("Seleccionar lugar del turno", lugares)
 
 
-    lugar = st.text_input("Lugar del turno (y lugar donde atiende el médico)")
 
     enviar = st.form_submit_button("Guardar Turno")
 
     if enviar:
-        if dni_paciente.strip() and lugar.strip():
+        if dni_paciente.strip() and lugar_seleccionado.strip():
             id_paciente = obtener_o_crear_paciente(dni_paciente.strip())
 
             if usar_medico_existente:
-                guardar_turno(id_paciente, id_medico, fecha, hora, lugar)
+                guardar_turno(id_paciente, id_medico, fecha, hora, lugar_seleccionado)
                 st.success("✅ Turno guardado correctamente")
             else:
                 if nombre_medico.strip() and especialidad_medico.strip():
-                    id_medico = obtener_o_crear_medico(nombre_medico.strip(), especialidad_medico.strip(), lugar.strip())
-                    guardar_turno(id_paciente, id_medico, fecha, lugar)
+                    id_medico = obtener_o_crear_medico(nombre_medico.strip(), especialidad_medico.strip(), lugar_seleccionado.strip())
+                    guardar_turno(id_paciente, id_medico, fecha, hora, lugar_seleccionado)
                     st.success("✅ Turno guardado correctamente")
                 else:
                     st.warning("Por favor completá nombre y especialidad del nuevo médico.")
@@ -134,18 +148,18 @@ with st.form("form_turno"):
 # 📋 Listado + Edición y Eliminación
 # ------------------------
 st.markdown("### 📋 Turnos del Mes")
-df = obtener_turnos_mes(current_date.year, current_date.month)
+df = obtener_turnos_mes(current_date.year, current_date.month, dni)
 
 if not df.empty:
     for i, row in df.iterrows():
-        with st.expander(f"📅 {row['Fecha'].strftime('%d/%m/%Y')} - {row['Paciente']}"):
+        with st.expander(f"🗕️ {row['Fecha'].strftime('%d/%m/%Y')} - {row['Paciente']}"):
             st.text(f"Médico: {row['Médico']}")
             st.text(f"Lugar: {row['Lugar']}")
             nueva_fecha = st.date_input(f"Editar fecha (ID {row['ID']})", value=row["Fecha"], key=f"fecha_{i}")
             nuevo_lugar = st.text_input("Editar lugar", value=row["Lugar"], key=f"lugar_{i}")
             col_ed, col_el = st.columns([1, 1])
             with col_ed:
-                if st.button("💾 Guardar cambios", key=f"editar_{i}"):
+                if st.button("📏 Guardar cambios", key=f"editar_{i}"):
                     editar_turno(row["ID"], nueva_fecha, nuevo_lugar)
                     st.success("Turno actualizado.")
             with col_el:
@@ -154,6 +168,3 @@ if not df.empty:
                     st.warning("Turno eliminado.")
 else:
     st.info("No hay turnos agendados este mes.")
-
-#Tenemos que agregar la opcion de que el paciente pueda cancelar el turno
-#Tenemos que agregar un menu desplegable de los medicos que tiene, y si quiere agregar otro, ahi darle la opcion de escribirlo
