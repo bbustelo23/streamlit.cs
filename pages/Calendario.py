@@ -14,7 +14,7 @@ conn = connect_to_supabase()
 # 🗕️ UI - Calendario
 # ------------------------
 
-st.title("🗕️ Calendario de Turnos Médicos")
+st.title("📅 Calendario de Turnos Médicos")
 dni = st.session_state.get("dni")
 
 if not dni:
@@ -29,7 +29,6 @@ if not encuesta_completada.empty and not encuesta_completada.iloc[0]["encuesta_r
         st.switch_page("pages/_Encuesta.py")   # Ajustá el path según la estructura de tu app
 
     st.stop()
-
 
 if "current_date" not in st.session_state:
     st.session_state.current_date = datetime.today().replace(day=1)
@@ -52,7 +51,6 @@ current_date = st.session_state.current_date
 st.subheader(current_date.strftime("%B %Y").upper())
 
 # Colorear días con turnos
-
 dias_con_turnos = obtener_dias_con_turnos(current_date.year, current_date.month, dni)
 
 # Render calendario visual
@@ -86,63 +84,73 @@ render_classic_calendar()
 
 if "agregando_nuevo_medico" not in st.session_state:
     st.session_state.agregando_nuevo_medico = False
+
 # ------------------------
 st.markdown("### ➕ Agendar Turno Médico")
 
 medicos_disponibles = obtener_todos_los_medicos()
-opciones_medicos = [m[1] for m in medicos_disponibles] + ["➕ Ingresar un médico nuevo"]
+opciones_medicos = [f"{m[1]}" for m in medicos_disponibles] + ["➕ Ingresar un médico nuevo"]
 opcion_elegida = st.selectbox("Médico", opciones_medicos, key="selector_medico")
-
 
 if opcion_elegida == "➕ Ingresar un médico nuevo":
     st.session_state.agregando_nuevo_medico = True
 else:
     st.session_state.agregando_nuevo_medico = False
-    
 
 with st.form("form_turno"):
     fecha = st.date_input("Fecha del turno", value=date.today())
     hora = st.time_input("Hora del turno", value=datetime.now().time())
-    dni_paciente = st.text_input("DNI del paciente")
+    dni_paciente = st.text_input("DNI del paciente", value=dni)
     
-
-
     if st.session_state.agregando_nuevo_medico:
         col_m1, col_m2, col_m3= st.columns(3)
         with col_m1:
             nombre_medico = st.text_input("Nombre del médico")
         with col_m2:
             especialidad_medico = st.text_input("Especialidad del médico")
-        
         with col_m3:
             lugar_seleccionado = st.text_input("Lugar del turno")
         usar_medico_existente = False  
     else:
         usar_medico_existente = True
-        id_medico = [m[0] for m in medicos_disponibles if m[1] == opcion_elegida][0]
-        lugares= obtener_lugares_por_medico(id_medico)
-        lugar_seleccionado = st.selectbox("Seleccionar lugar del turno", lugares)
-
-
+        # Buscar el ID del médico seleccionado
+        id_medico = None
+        for m in medicos_disponibles:
+            if f"{m[1]}" == opcion_elegida:
+                id_medico = m[0]
+                break
+        
+        if id_medico:
+            lugares = obtener_lugares_por_medico(id_medico)
+            lugar_seleccionado = st.selectbox("Seleccionar lugar del turno", lugares)
+        else:
+            lugar_seleccionado = st.text_input("Lugar del turno")
 
     enviar = st.form_submit_button("Guardar Turno")
 
     if enviar:
-        if dni_paciente.strip() and lugar_seleccionado.strip():
-            id_paciente = obtener_o_crear_paciente(dni_paciente.strip())
+        try:
+            if dni_paciente.strip() and lugar_seleccionado.strip():
+                id_paciente = obtener_o_crear_paciente(dni_paciente.strip())
 
-            if usar_medico_existente:
-                guardar_turno(id_paciente, id_medico, fecha, hora, lugar_seleccionado)
-                st.success("✅ Turno guardado correctamente")
-            else:
-                if nombre_medico.strip() and especialidad_medico.strip():
-                    id_medico = obtener_o_crear_medico(nombre_medico.strip(), especialidad_medico.strip(), lugar_seleccionado.strip())
+                if usar_medico_existente and id_medico:
                     guardar_turno(id_paciente, id_medico, fecha, hora, lugar_seleccionado)
                     st.success("✅ Turno guardado correctamente")
+                    st.rerun()  # Recargar la página para mostrar los cambios
+                elif not usar_medico_existente:
+                    if nombre_medico.strip() and especialidad_medico.strip():
+                        id_medico_nuevo = obtener_o_crear_medico(nombre_medico.strip(), especialidad_medico.strip(), lugar_seleccionado.strip())
+                        guardar_turno(id_paciente, id_medico_nuevo, fecha, hora, lugar_seleccionado)
+                        st.success("✅ Turno guardado correctamente con nuevo médico")
+                        st.rerun()  # Recargar la página para mostrar los cambios
+                    else:
+                        st.warning("Por favor completá nombre y especialidad del nuevo médico.")
                 else:
-                    st.warning("Por favor completá nombre y especialidad del nuevo médico.")
-        else:
-            st.warning("Por favor completá DNI del paciente y lugar del turno.")
+                    st.error("Error: No se pudo obtener el ID del médico seleccionado.")
+            else:
+                st.warning("Por favor completá DNI del paciente y lugar del turno.")
+        except Exception as e:
+            st.error(f"Error al guardar el turno: {str(e)}")
 
 # ------------------------
 # 📋 Listado + Edición y Eliminación
@@ -160,11 +168,19 @@ if not df.empty:
             col_ed, col_el = st.columns([1, 1])
             with col_ed:
                 if st.button("📏 Guardar cambios", key=f"editar_{i}"):
-                    editar_turno(row["ID"], nueva_fecha, nuevo_lugar)
-                    st.success("Turno actualizado.")
+                    try:
+                        editar_turno(row["ID"], nueva_fecha, nuevo_lugar)
+                        st.success("Turno actualizado.")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error al actualizar turno: {str(e)}")
             with col_el:
                 if st.button("🗑️ Eliminar turno", key=f"eliminar_{i}"):
-                    eliminar_turno(row["ID"])
-                    st.warning("Turno eliminado.")
+                    try:
+                        eliminar_turno(row["ID"])
+                        st.warning("Turno eliminado.")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error al eliminar turno: {str(e)}")
 else:
     st.info("No hay turnos agendados este mes.")
