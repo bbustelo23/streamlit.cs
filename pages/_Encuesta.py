@@ -72,6 +72,7 @@ if submit:
     dieta=(sigue_dieta == "Sí"),
     antecedentes_familiares_enfermedad=enfermedades if antecedentes_familiares == "Sí" else None,
     antecedentes_familiares_familiar=familiares if antecedentes_familiares == "Sí" else None
+    conn=conn
 )
 
     update_encuesta_completada(dni=st.session_state.dni) 

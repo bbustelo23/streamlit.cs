@@ -90,8 +90,8 @@ else:
             st.switch_page("pages/Calendario.py")  # Asegurate de que exista esa página
 
     with col3:
-        if st.button("🏥 Ver mi historial"):
-            st.switch_page("pages/datos.py")  # Asegurate de que exista esa página
+        if st.button("🏥 Ver mi historial clínico"):
+            st.switch_page("pages/Historial.py")  # Asegurate de que exista esa página
 
     with col4:
         if st.button("💊 Ver mis medicamentos"):
