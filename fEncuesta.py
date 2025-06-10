@@ -174,7 +174,7 @@ def get_pacientes_by_responsable(id_responsable):
         conn.close()
 
 def insert_paciente(nombre, apellido, fecha_nacimiento, sexo, dni, id_responsable, 
-                    medicos="", tipo_relacion="Otro familiar", tiene_cuenta_propia=False):
+                    medicos="", tipo_relacion="Otro familiar", tiene_cuenta_propia=False, encuesta_completada=False):
     conn = get_connection()
     try:
         cursor = conn.cursor()

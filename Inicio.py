@@ -3,6 +3,7 @@ import streamlit as st
 from fEncuesta import get_paciente
 from fEncuesta import insert_historial
 from fEncuesta import insert_paciente
+from datetime import date, datetime
 
 
 if "logged_in" not in st.session_state:
@@ -59,7 +60,7 @@ if not st.session_state.logged_in:
             main_email = st.text_input("Correo electrónico")
             new_password = st.text_input("Contraseña", type="password")
             confirm_password = st.text_input("Confirmar contraseña", type="password")
-            fecha_nacimiento = st.date_input("Fecha de nacimiento")
+            fecha_nacimiento = st.date_input("Fecha de nacimiento", min_value=date(1920, 1, 1), max_value=datetime.today().date())
             sexo = st.selectbox("Sexo", ["Masculino", "Femenino"])
             register = st.form_submit_button("Registrarme")
 
