@@ -12,6 +12,7 @@ def get_historial_medico(dni, conn=None):
         if not id_paciente:
             return None
         
+        id_paciente = int(id_paciente)
         query = """
         SELECT * FROM historial_medico 
         WHERE id_paciente = %s 
@@ -38,7 +39,7 @@ def get_eventos_medicos_recientes(dni, conn=None):
         id_paciente = get_id_paciente_por_dni(dni, conn=conn)
         if not id_paciente:
             return None
-        
+        id_paciente = int(id_paciente)
         query = """
         SELECT * FROM eventos_medicos_recientes 
         WHERE id_paciente = %s 
@@ -57,7 +58,7 @@ def insertar_evento_medico(dni, enfermedad, medicacion, sintomas, comentarios, c
         if not id_paciente:
             st.error("No se pudo encontrar el ID del paciente")
             return False
-        
+        id_paciente = int(id_paciente)
         # Crear tabla si no existe (con manejo de errores mejorado)
         create_table_query = """
         CREATE TABLE IF NOT EXISTS eventos_medicos_recientes (
@@ -126,7 +127,7 @@ def verificar_conexion_y_permisos(dni, conn=None):
         id_paciente = get_id_paciente_por_dni(dni, conn=conn)
         if not id_paciente:
             return False, "No se encontró el paciente en la base de datos"
-        
+        id_paciente = int(id_paciente)
         # Verificar que existe la tabla
         check_table_query = """
         SELECT EXISTS (
