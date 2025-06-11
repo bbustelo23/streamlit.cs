@@ -35,6 +35,9 @@ if sigue_dieta == "Sí":
     tipo_dieta = st.text_input("¿Qué tipo de dieta?")
 
 
+estres = st.radio("Estres alto?", ["Si", "No"], index = 1)
+colesterol = st.radio("Colesterol alto?", ["Si", "No"], index=1)
+
 antecedentes_familiares = st.radio("¿Tenés antecedentes familiares de alguna enfermedad?", ["Sí", "No"], index=1)
 if antecedentes_familiares == "Sí":
     st.markdown("### Detalles de antecedentes")
@@ -69,6 +72,8 @@ if submit:
     condicion=condicion if tiene_condicion == "Sí" else None,
     medicacion_cronica=medicacion if tiene_condicion == "Sí" and toma_medicacion == "Sí" else None,
     dieta=(sigue_dieta == "Sí"),
+    estres_alto= (estres== "Si"),
+    colesterol_alto = (colesterol=="Si"),
     antecedentes_familiares_enfermedad=enfermedades if antecedentes_familiares == "Sí" else None,
     antecedentes_familiares_familiar=familiares if antecedentes_familiares == "Sí" else None,
     conn=conn
