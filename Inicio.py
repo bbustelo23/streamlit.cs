@@ -108,3 +108,6 @@ else:
         st.switch_page("Inicio.py") # Asegurate que sea la página de inicio/login
 
 
+
+st.sidebar.write(f"Última actualización: {datetime.now().strftime('%H:%M:%S')}")
+

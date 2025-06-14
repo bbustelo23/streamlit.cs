@@ -20,25 +20,6 @@ def insert_paciente(dni, nombre, fecha_nacimiento, sexo, password, encuesta_comp
     return execute_query(query, params=params, conn=conn, is_select=False)
 
 
-def insert_historial(dni, fecha_completado, fumador, alcoholico, peso,
-                     condicion=None, medicacion_cronica=None, dieta=False,
-                     antecedentes_familiares_enfermedad=None, antecedentes_familiares_familiar=None,
-                     conn=None):
-    query = """
-    INSERT INTO historial (
-        dni, fecha_completado, fumador, alcoholico, peso, condicion,
-        medicacion_cronica, dieta, estres_alto, colesterol_alto, antecedentes_familiares_enfermedad,
-        antecedentes_familiares_familiar
-    ) 
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
-    """
-    params = (
-        dni, fecha_completado, fumador, alcoholico, peso,
-        condicion, medicacion_cronica, dieta,
-        antecedentes_familiares_enfermedad, antecedentes_familiares_familiar)
-    return execute_query(query, params=params, conn=conn, is_select=False)
-
-
 def get_id_paciente_por_dni(dni, conn=None):
     query = "SELECT id_paciente FROM pacientes WHERE dni = %s;"
     #st.write("Ejecutando consulta con dni:", dni)
@@ -129,121 +110,9 @@ def get_encuesta_completada(dni, conn=None):
 # fEncuesta.py - Funciones para manejo de responsables, pacientes e historial médico
 
 
-# ========== CONEXIÓN ==========
-def get_connection():
-    return sqlite3.connect('medcheck.db')
-
-# ========== FUNCIONES DE RESPONSABLES ==========
-
-def get_responsable_by_id(id_responsable):
-    conn = get_connection()
-    try:
-        query = "SELECT * FROM responsables WHERE id_responsable = ?"
-        return pd.read_sql_query(query, conn, params=(id_responsable,))
-    finally:
-        conn.close()
-
-def insert_responsable(nombre, apellido, telefono=""):
-    conn = get_connection()
-    try:
-        cursor = conn.cursor()
-        cursor.execute("""
-            INSERT INTO responsables (nombre, apellido, telefono)
-            VALUES (?, ?, ?)
-        """, (nombre, apellido, telefono))
-        conn.commit()
-        return cursor.lastrowid
-    finally:
-        conn.close()
-
-# ========== FUNCIONES DE PACIENTES ==========
-
-def get_pacientes_by_responsable(id_responsable):
-    conn = get_connection()
-    try:
-        query = """
-            SELECT p.*, 
-                   CASE 
-                       WHEN p.fecha_nacimiento IS NOT NULL 
-                       THEN CAST((julianday('now') - julianday(p.fecha_nacimiento)) / 365.25 AS INTEGER)
-                       ELSE NULL 
-                   END as edad
-            FROM pacientes p 
-            WHERE p.id_responsable = ? AND p.activo = 1
-            ORDER BY p.nombre, p.apellido
-        """
-        return pd.read_sql_query(query, conn, params=(id_responsable,))
-    finally:
-        conn.close()
-
-def insert_paciente(nombre, apellido, fecha_nacimiento, sexo, dni, id_responsable, 
-                    medicos="", tipo_relacion="Otro familiar", tiene_cuenta_propia=False):
-    conn = get_connection()
-    try:
-        cursor = conn.cursor()
-        cursor.execute("""
-            INSERT INTO pacientes (nombre, apellido, fecha_nacimiento, sexo, dni, 
-                                   id_responsable, medicos, tipo_relacion, tiene_cuenta_propia)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (nombre, apellido, fecha_nacimiento, sexo, dni, id_responsable, 
-              medicos, tipo_relacion, tiene_cuenta_propia))
-        conn.commit()
-        return cursor.lastrowid
-    finally:
-        conn.close()
-
-def get_paciente_by_id(id_paciente):
-    conn = get_connection()
-    try:
-        query = """
-            SELECT p.*, 
-                   r.nombre as responsable_nombre, 
-                   r.apellido as responsable_apellido,
-                   CASE 
-                       WHEN p.fecha_nacimiento IS NOT NULL 
-                       THEN CAST((julianday('now') - julianday(p.fecha_nacimiento)) / 365.25 AS INTEGER)
-                       ELSE NULL 
-                   END as edad
-            FROM pacientes p 
-            LEFT JOIN responsables r ON p.id_responsable = r.id_responsable
-            WHERE p.id_paciente = ?
-        """
-        return pd.read_sql_query(query, conn, params=(id_paciente,))
-    finally:
-        conn.close()
-
-def get_paciente_by_dni(dni):
-    conn = get_connection()
-    try:
-        query = "SELECT * FROM pacientes WHERE dni = ?"
-        return pd.read_sql_query(query, conn, params=(dni,))
-    finally:
-        conn.close()
 
 # ========== FUNCIONES DE HISTORIAL MÉDICO ==========
 
-def insert_historial_medico(id_paciente, fecha_encuesta=None, peso=None, fumador=None, alcohol=None,
-                            dieta=None, actividad_fisica=None, alergias=None, suplementos=None,
-                            antecedentes_familiares=None, condiciones_medicas=None, medicacion_actual=None,
-                            observaciones=None):
-    if fecha_encuesta is None:
-        fecha_encuesta = datetime.now().strftime("%Y-%m-%d")
-    conn = get_connection()
-    try:
-        cursor = conn.cursor()
-        cursor.execute("""
-            INSERT INTO historial_medico (
-                id_paciente, fecha_encuesta, peso, fumador, alcohol, dieta,
-                actividad_fisica, alergias, suplementos, antecedentes_familiares,
-                condiciones_medicas, medicacion_actual, observaciones
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (id_paciente, fecha_encuesta, peso, fumador, alcohol, dieta,
-              actividad_fisica, alergias, suplementos, antecedentes_familiares,
-              condiciones_medicas, medicacion_actual, observaciones))
-        conn.commit()
-        return cursor.lastrowid
-    finally:
-        conn.close()
 
 def get_historial_by_paciente(id_paciente):
     conn = connect_to_supabase()
@@ -253,14 +122,30 @@ def get_historial_by_paciente(id_paciente):
     finally:
         conn.close()
 
-def obtener_edad(dni,conn=None):
-    id_paciente = get_id_paciente_por_dni(dni)
-    df = execute_query("SELECT fecha_nacimiento FROM pacientes WHERE id_paciente = %s", (id_paciente,), conn)
-    if df.empty or not isinstance(df.at[0, "fecha_nacimiento"], datetime.date):
+def obtener_edad(id_paciente):
+    """
+    Calcula la edad de un paciente usando su ID directamente.
+    """
+    if not id_paciente:
         return None
-    fn = df.at[0, "fecha_nacimiento"]
-    hoy = datetime.date.today()
-    return hoy.year - fn.year - ((hoy.month, hoy.day) < (fn.month, fn.day))
+    
+    try:
+        query = "SELECT fecha_nacimiento FROM pacientes WHERE id_paciente = %s"
+        
+        # execute_query debería devolver un DataFrame
+        df = execute_query(query, params=(int(id_paciente),), is_select=True)
+        
+        if not df.empty:
+            fecha_nacimiento = df.iloc[0]['fecha_nacimiento']
+            if fecha_nacimiento:
+                hoy = date.today()
+                edad = hoy.year - fecha_nacimiento.year - ((hoy.month, hoy.day) < (fecha_nacimiento.month, fecha_nacimiento.day))
+                return edad
+        return None # Retorna None si no se encuentra paciente o fecha
+        
+    except Exception as e:
+        print(f"Error en obtener_edad: {e}")
+        return None
 
 def tiene_antecedente_enfermedad_por_dni(dni, enfermedad, conn=None):
     # Primero obtenemos el id_paciente a partir del dni
