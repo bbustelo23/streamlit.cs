@@ -1,31 +1,59 @@
-
 import streamlit as st
 from fEncuesta import get_paciente
 from fEncuesta import insert_historial
 from fEncuesta import insert_paciente
 from datetime import date, datetime
 
+# --- Page Configuration MUST BE THE FIRST STREAMLIT COMMAND ---
+st.set_page_config(
+    page_title="MedCheck",
+    page_icon="⚕️",  # Medical cross icon
+    layout="wide" # "wide" or "centered"
+)
+
+# Custom CSS styling
+st.markdown("""
+    <style>
+    .main-title {
+        color: #800020;  /* Burgundy color */
+        font-size: 3em;
+        font-weight: bold;
+        margin-bottom: 1em;
+    }
+    .subtitle {
+        color: #2E4053;  /* Dark blue-gray */
+        font-size: 1.5em;
+        margin-bottom: 1em;
+    }
+    .stButton>button {
+        background-color: #800020;
+        color: white;
+    }
+    .stButton>button:hover {
+        background-color: #600010;
+        color: white;
+    }
+    .medcheck-text {
+        color: #800020;  /* Burgundy color */
+        font-weight: bold;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "show_register" not in st.session_state:
     st.session_state.show_register = False
 
-# --- Page Configuration (Optional but Recommended) ---
-st.set_page_config(
-    page_title="MedCheck",
-    layout="wide" # "wide" or "centered"
-)
-
 # --- Main Application ---
 if not st.session_state.logged_in:
-    st.title("Bienvenido a MedCheck!")
-    st.subheader("¿Qué es MedCheck?")
+    st.markdown('<h1 class="main-title">⚕️ Bienvenido a <span class="medcheck-text">MedCheck</span>!</h1>', unsafe_allow_html=True)
+    st.markdown('<h2 class="subtitle">¿Qué es <span class="medcheck-text">MedCheck</span>?</h2>', unsafe_allow_html=True)
     st.write("MedCheck es una aplicación web que te permite gestionar tu salud de manera fácil y eficiente.")
     st.write("Con MedCheck, puedes registrar y seguir tu progreso en cuanto a salud, mejorar tu estilo de vida y tomar decisiones informadas sobre tu bienestar.")
 else:
-    st.title("MedCheck - Inicio")
-    st.subheader("¡Bienvenido!")
+    st.markdown('<h1 class="main-title">⚕️ <span class="medcheck-text">MedCheck</span> - Inicio</h1>', unsafe_allow_html=True)
+    st.markdown('<h2 class="subtitle">¡Bienvenido!</h2>', unsafe_allow_html=True)
     st.write("Usá la barra lateral para navegar.")
 
 
