@@ -59,7 +59,8 @@ def insertar_evento_medico(dni, enfermedad, medicacion, sintomas, comentarios, c
             st.error("No se pudo encontrar el ID del paciente")
             return False
         id_paciente = int(id_paciente)
-        # Crear tabla si no existe (con manejo de errores mejorado)
+        
+        # Crear tabla si no existe
         create_table_query = """
         CREATE TABLE IF NOT EXISTS eventos_medicos_recientes (
             id SERIAL PRIMARY KEY,
@@ -78,7 +79,6 @@ def insertar_evento_medico(dni, enfermedad, medicacion, sintomas, comentarios, c
             execute_query(create_table_query, conn=conn, is_select=False)
         except Exception as table_error:
             print(f"Error al crear tabla (puede que ya exista): {str(table_error)}")
-            # Continuar aunque falle la creación de tabla
         
         # Insertar evento
         query = """
@@ -87,7 +87,6 @@ def insertar_evento_medico(dni, enfermedad, medicacion, sintomas, comentarios, c
         VALUES (%s, %s, %s, %s, %s, %s)
         """
         
-        # Preparar parámetros (convertir None a NULL para campos opcionales)
         params = (
             id_paciente, 
             date.today(), 
@@ -97,7 +96,6 @@ def insertar_evento_medico(dni, enfermedad, medicacion, sintomas, comentarios, c
             comentarios.strip() if comentarios and comentarios.strip() else None
         )
         
-        # Ejecutar inserción
         result = execute_query(query, params=params, conn=conn, is_select=False)
         
         if result:
@@ -112,38 +110,10 @@ def insertar_evento_medico(dni, enfermedad, medicacion, sintomas, comentarios, c
         print(f"Error detallado: {str(e)}")
         return False
 
-# Función adicional para debug
-def verificar_conexion_y_permisos(dni, conn=None):
-    """Función para verificar que todo funcione correctamente"""
-    try:
-        # Verificar conexión
-        test_query = "SELECT 1 as test"
-        test_result = execute_query(test_query, conn=conn, is_select=True)
-        
-        if test_result is None:
-            return False, "No se pudo conectar a la base de datos"
-        
-        # Verificar que existe el paciente
-        id_paciente = get_id_paciente_por_dni(dni, conn=conn)
-        if not id_paciente:
-            return False, "No se encontró el paciente en la base de datos"
-        id_paciente = int(id_paciente)
-        # Verificar que existe la tabla
-        check_table_query = """
-        SELECT EXISTS (
-            SELECT FROM information_schema.tables 
-            WHERE table_name = 'eventos_medicos_recientes'
-        );
-        """
-        
-        table_exists = execute_query(check_table_query, conn=conn, is_select=True)
-        
-        return True, f"Todo OK - Paciente ID: {id_paciente}, Tabla existe: {table_exists}"
-        
-    except Exception as e:
-        return False, f"Error en verificación: {str(e)}"
-    
 #-----------------------------------------------------------------------
+# FUNCIONES PARA ESTUDIOS MÉDICOS
+#-----------------------------------------------------------------------
+
 def get_estudios_medicos_recientes(dni, conn=None):
     """Obtiene los estudios médicos del paciente con sus imágenes"""
     try:
@@ -153,7 +123,7 @@ def get_estudios_medicos_recientes(dni, conn=None):
         id_paciente = int(id_paciente)
         
         query = """
-        SELECT e.*, i.imagen_base64
+        SELECT e.id_estudio, e.id_paciente, e.fecha, e.tipo, e.zona, e.descripcion, i.imagen_base64
         FROM Estudios e
         LEFT JOIN imagenes_estudios i ON e.id_estudio = i.id_estudio
         WHERE e.id_paciente = %s 
@@ -165,7 +135,7 @@ def get_estudios_medicos_recientes(dni, conn=None):
         return None
 
 def insertar_estudio_medico(dni, tipo_estudio, fecha_estudio, zona, razon, observaciones=None, imagen_base64=None, conn=None):
-    """Inserta un nuevo estudio médico usando la tabla Estudios existente"""
+    """Inserta un nuevo estudio médico usando la tabla Estudios"""
     try:
         # Obtener ID del paciente
         id_paciente = get_id_paciente_por_dni(dni, conn=conn)
@@ -183,23 +153,17 @@ def insertar_estudio_medico(dni, tipo_estudio, fecha_estudio, zona, razon, obser
         else:
             next_id = 1
         
-        # Insertar estudio médico en la tabla Estudios
-        # Mapeo de campos según tu estructura:
-        # - tipo_estudio -> tipo
-        # - fecha_estudio -> fecha  
-        # - zona -> zona
-        # - razon + observaciones -> descripcion
+        # Combinar razón y observaciones en descripción
+        descripcion_completa = razon.strip()
+        if observaciones and observaciones.strip():
+            descripcion_completa += f" | Observaciones: {observaciones.strip()}"
         
+        # Insertar estudio médico en la tabla Estudios
         query = """
         INSERT INTO Estudios 
         (id_estudio, id_paciente, fecha, tipo, zona, descripcion)
         VALUES (%s, %s, %s, %s, %s, %s)
         """
-        
-        # Combinamos razón y observaciones en descripción
-        descripcion_completa = razon.strip()
-        if observaciones and observaciones.strip():
-            descripcion_completa += f" | Observaciones: {observaciones.strip()}"
         
         params = (
             next_id,
@@ -215,7 +179,7 @@ def insertar_estudio_medico(dni, tipo_estudio, fecha_estudio, zona, razon, obser
         if result:
             print(f"Estudio médico insertado exitosamente para paciente ID: {id_paciente}")
             
-            # Si hay imagen, guardarla en una tabla separada para imágenes
+            # Si hay imagen, guardarla en tabla separada
             if imagen_base64:
                 guardar_imagen_estudio(next_id, imagen_base64, conn)
             
@@ -229,15 +193,13 @@ def insertar_estudio_medico(dni, tipo_estudio, fecha_estudio, zona, razon, obser
         print(f"Error detallado al insertar estudio: {str(e)}")
         return False
 
-# === FUNCIONES AUXILIARES PARA IMÁGENES ===
-
 def guardar_imagen_estudio(id_estudio, imagen_base64, conn=None):
     """Guarda la imagen de un estudio en una tabla separada"""
     try:
         # Crear tabla para imágenes si no existe
         create_images_table = """
         CREATE TABLE IF NOT EXISTS imagenes_estudios (
-            id_imagen INTEGER PRIMARY KEY,
+            id_imagen SERIAL PRIMARY KEY,
             id_estudio INTEGER,
             imagen_base64 TEXT,
             fecha_subida TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -248,24 +210,15 @@ def guardar_imagen_estudio(id_estudio, imagen_base64, conn=None):
         try:
             execute_query(create_images_table, conn=conn, is_select=False)
         except Exception as table_error:
-            print(f"Error al crear tabla de imágenes: {str(table_error)}")
+            print(f"Error al crear tabla de imágenes (puede que ya exista): {str(table_error)}")
         
-        # Obtener próximo ID para la imagen
-        get_max_img_id = "SELECT COALESCE(MAX(id_imagen), 0) + 1 as next_id FROM imagenes_estudios"
-        result_img_id = execute_query(get_max_img_id, conn=conn, is_select=True)
-        
-        if result_img_id is not None and not result_img_id.empty:
-            next_img_id = result_img_id.iloc[0]['next_id']
-        else:
-            next_img_id = 1
-        
-        # Insertar imagen
+        # Insertar imagen (SERIAL se auto-incrementa)
         query = """
-        INSERT INTO imagenes_estudios (id_imagen, id_estudio, imagen_base64)
-        VALUES (%s, %s, %s)
+        INSERT INTO imagenes_estudios (id_estudio, imagen_base64)
+        VALUES (%s, %s)
         """
         
-        result = execute_query(query, params=(next_img_id, id_estudio, imagen_base64), conn=conn, is_select=False)
+        result = execute_query(query, params=(id_estudio, imagen_base64), conn=conn, is_select=False)
         
         if result:
             print(f"Imagen guardada exitosamente para estudio ID: {id_estudio}")
@@ -291,6 +244,8 @@ def get_imagen_estudio(id_estudio, conn=None):
     except Exception as e:
         print(f"Error al obtener imagen del estudio: {str(e)}")
         return None
+
+def eliminar_estudio_medico(estudio_id, dni, conn=None):
     """Elimina un estudio médico específico"""
     try:
         # Verificar que el estudio pertenece al paciente
@@ -299,9 +254,17 @@ def get_imagen_estudio(id_estudio, conn=None):
             return False
         id_paciente = int(id_paciente)
         
+        # Primero eliminar las imágenes asociadas
+        delete_images_query = """
+        DELETE FROM imagenes_estudios 
+        WHERE id_estudio = %s
+        """
+        execute_query(delete_images_query, params=(estudio_id,), conn=conn, is_select=False)
+        
+        # Luego eliminar el estudio
         query = """
-        DELETE FROM estudios_medicos 
-        WHERE id = %s AND id_paciente = %s
+        DELETE FROM Estudios 
+        WHERE id_estudio = %s AND id_paciente = %s
         """
         
         result = execute_query(query, params=(estudio_id, id_paciente), conn=conn, is_select=False)
@@ -317,7 +280,7 @@ def get_imagen_estudio(id_estudio, conn=None):
         return False
 
 def actualizar_estudio_medico(estudio_id, dni, tipo_estudio=None, fecha_estudio=None, 
-                            razon=None, observaciones=None, imagen_base64=None, conn=None):
+                            zona=None, descripcion=None, conn=None):
     """Actualiza un estudio médico existente"""
     try:
         # Verificar que el estudio pertenece al paciente
@@ -331,38 +294,31 @@ def actualizar_estudio_medico(estudio_id, dni, tipo_estudio=None, fecha_estudio=
         params = []
         
         if tipo_estudio:
-            update_fields.append("tipo_estudio = %s")
+            update_fields.append("tipo = %s")
             params.append(tipo_estudio.strip())
         
         if fecha_estudio:
-            update_fields.append("fecha_estudio = %s")
+            update_fields.append("fecha = %s")
             params.append(fecha_estudio)
         
-        if razon:
-            update_fields.append("razon = %s")
-            params.append(razon.strip())
+        if zona:
+            update_fields.append("zona = %s")
+            params.append(zona.strip())
         
-        if observaciones is not None:  # Permitir cadena vacía
-            update_fields.append("observaciones = %s")
-            params.append(observaciones.strip() if observaciones.strip() else None)
-        
-        if imagen_base64 is not None:  # Permitir None para eliminar imagen
-            update_fields.append("imagen_base64 = %s")
-            params.append(imagen_base64)
+        if descripcion is not None:
+            update_fields.append("descripcion = %s")
+            params.append(descripcion.strip() if descripcion.strip() else None)
         
         if not update_fields:
             return False  # No hay nada que actualizar
-        
-        # Agregar timestamp de actualización
-        update_fields.append("updated_at = CURRENT_TIMESTAMP")
         
         # Agregar condiciones WHERE
         params.extend([estudio_id, id_paciente])
         
         query = f"""
-        UPDATE estudios_medicos 
+        UPDATE Estudios 
         SET {', '.join(update_fields)}
-        WHERE id = %s AND id_paciente = %s
+        WHERE id_estudio = %s AND id_paciente = %s
         """
         
         result = execute_query(query, params=params, conn=conn, is_select=False)
@@ -388,12 +344,13 @@ def get_estadisticas_estudios(dni, conn=None):
         query = """
         SELECT 
             COUNT(*) as total_estudios,
-            COUNT(CASE WHEN imagen_base64 IS NOT NULL THEN 1 END) as estudios_con_imagen,
-            COUNT(DISTINCT tipo_estudio) as tipos_diferentes,
-            MIN(fecha_estudio) as primer_estudio,
-            MAX(fecha_estudio) as ultimo_estudio
-        FROM estudios_medicos 
-        WHERE id_paciente = %s
+            COUNT(i.imagen_base64) as estudios_con_imagen,
+            COUNT(DISTINCT e.tipo) as tipos_diferentes,
+            MIN(e.fecha) as primer_estudio,
+            MAX(e.fecha) as ultimo_estudio
+        FROM Estudios e
+        LEFT JOIN imagenes_estudios i ON e.id_estudio = i.id_estudio
+        WHERE e.id_paciente = %s
         """
         
         return execute_query(query, params=(id_paciente,), conn=conn, is_select=True)
@@ -401,7 +358,7 @@ def get_estadisticas_estudios(dni, conn=None):
         print(f"Error al obtener estadísticas de estudios: {str(e)}")
         return None
 
-# Función adicional para debug
+# Función para debug
 def verificar_conexion_y_permisos(dni, conn=None):
     """Función para verificar que todo funcione correctamente"""
     try:
@@ -422,7 +379,7 @@ def verificar_conexion_y_permisos(dni, conn=None):
         check_tables_query = """
         SELECT table_name 
         FROM information_schema.tables 
-        WHERE table_name IN ('eventos_medicos_recientes', 'estudios_medicos')
+        WHERE table_name IN ('eventos_medicos_recientes', 'estudios', 'imagenes_estudios')
         """
         
         tables_exist = execute_query(check_tables_query, conn=conn, is_select=True)

@@ -2,13 +2,16 @@ import streamlit as st
 from datetime import date, datetime
 from fEncuesta import get_id_paciente_por_dni, get_encuesta_completada
 from functions import connect_to_supabase
-from fHistorial import insertar_evento_medico, get_eventos_medicos_recientes, get_datos_paciente, get_historial_medico
+from fHistorial import get_estadisticas_estudios, verificar_conexion_y_permisos, actualizar_estudio_medico, get_estudios_medicos_recientes, insertar_estudio_medico, guardar_imagen_estudio, get_imagen_estudio, insertar_evento_medico, get_eventos_medicos_recientes, get_datos_paciente, get_historial_medico
+import base64
+from PIL import Image
+import io
 
 # --- Configuración de la Página ---
 st.set_page_config(
     page_title="Historial Clínico - MedCheck",
     page_icon="🏥",
-    layout="centered"  # Un layout centrado es más simple para leer
+    layout="centered"
 )
 
 # --- Conexión a la base de datos ---
@@ -52,7 +55,6 @@ if historial is not None and not historial.empty:
         st.write("**Condiciones crónicas:** No reportadas.")
         
     if datos.get("antecedentes_familiares_enfermedad"):
-        # Lógica para procesar antecedentes (simplificada)
         familiares = datos.get("antecedentes_familiares_familiar", "N/D")
         enfermedades = datos.get("antecedentes_familiares_enfermedad", "N/D")
         st.write(f"**Antecedentes Familiares:** {familiares} - {enfermedades}")
@@ -76,16 +78,16 @@ if eventos is not None and not eventos.empty:
             st.write(f"**Medicación:** {evento['medicacion']}")
         if evento.get('comentarios'):
             st.write(f"**Comentarios:** {evento['comentarios']}")
-        st.markdown("---") # Pequeño separador entre eventos
+        st.markdown("---")
 else:
     st.info("📋 **Sin Eventos Registrados:** Usa el formulario a continuación para agregar tu primer evento.")
 
 st.divider()
 
-# --- 5. Formulario para Agregar Nuevo Evento ---
+# --- 5. Formulario para Agregar Nuevo Evento Médico ---
 st.header("➕ Registrar Nuevo Evento Médico")
 
-with st.form("nuevo_evento_medico", clear_on_submit=True, border=False): # Borde quitado
+with st.form("nuevo_evento_medico", clear_on_submit=True, border=False):
     enfermedad = st.text_input(
         "Enfermedad o Diagnóstico (*)",
         placeholder="Ej: Gripe, Dolor de cabeza..."
@@ -111,11 +113,163 @@ with st.form("nuevo_evento_medico", clear_on_submit=True, border=False): # Borde
                     enfermedad=enfermedad,
                     medicacion=medicacion,
                     sintomas=sintomas,
-                    comentarios="", # Campo de comentarios eliminado del form para simplicidad
+                    comentarios="",
                     conn=conn
                 )
             if success:
                 st.success("✅ ¡Evento guardado!")
-                st.rerun() # Recarga la página para mostrar el nuevo evento arriba
+                st.rerun()
             else:
                 st.error("❌ Hubo un error al guardar el evento.")
+
+st.divider()
+
+# --- 6. Historial de Estudios Médicos ---
+st.header("🔬 Estudios Médicos")
+estudios = get_estudios_medicos_recientes(dni, conn=conn)
+
+if estudios is not None and not estudios.empty:
+    for idx, estudio in estudios.iterrows():
+        with st.expander(f"📋 {estudio.get('tipo', 'Estudio')} - {estudio.get('fecha', 'N/D')}"):
+            st.write(f"**Tipo de Estudio:** {estudio.get('tipo', 'N/D')}")
+            st.write(f"**Zona:** {estudio.get('zona', 'N/D')}")
+            st.write(f"**Fecha:** {estudio.get('fecha', 'N/D')}")
+            st.write(f"**Descripción:** {estudio.get('descripcion', 'N/D')}")
+            
+            # Mostrar imagen si existe
+            if estudio.get('imagen_base64'):
+                try:
+                    image_data = base64.b64decode(estudio['imagen_base64'])
+                    image = Image.open(io.BytesIO(image_data))
+                    st.image(image, caption=f"Imagen del estudio: {estudio.get('tipo')}", use_column_width=True)
+                    
+                    # Botón para descargar la imagen
+                    st.download_button(
+                        label="⬇️ Descargar Imagen",
+                        data=image_data,
+                        file_name=f"estudio_{estudio.get('tipo', 'imagen')}_{estudio.get('fecha', 'fecha')}.jpg",
+                        mime="image/jpeg"
+                    )
+                except Exception as e:
+                    st.error(f"Error al cargar la imagen: {str(e)}")
+else:
+    st.info("🔬 **Sin Estudios Registrados:** Usa el formulario a continuación para agregar tu primer estudio médico.")
+
+st.divider()
+
+# --- 7. Formulario para Agregar Nuevo Estudio Médico ---
+st.header("🔬 Agregar Estudio Médico")
+st.caption("Sube radiografías, tomografías, análisis de sangre, etc.")
+
+with st.form("nuevo_estudio_medico", clear_on_submit=True, border=False):
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        tipo_estudio = st.selectbox(
+            "Tipo de Estudio (*)",
+            ["", "Radiografía", "Tomografía", "Resonancia Magnética", "Ecografía", 
+             "Análisis de Sangre", "Análisis de Orina", "Electrocardiograma", 
+             "Mamografía", "Colonoscopía", "Endoscopía", "Otro"]
+        )
+        
+        if tipo_estudio == "Otro":
+            tipo_estudio_personalizado = st.text_input("Especificar tipo de estudio:")
+            if tipo_estudio_personalizado:
+                tipo_estudio = tipo_estudio_personalizado
+    
+    with col2:
+        fecha_estudio = st.date_input(
+            "Fecha del Estudio (*)",
+            value=date.today(),
+            max_value=date.today()
+        )
+    
+    zona = st.text_input(
+        "Zona del Cuerpo (*)",
+        placeholder="Ej: Rodilla derecha, Tórax, Abdomen, Brazo izquierdo..."
+    )
+    
+    razon = st.text_area(
+        "Razón del Estudio (*)",
+        placeholder="Ej: Control de rutina, dolor persistente, seguimiento post-operatorio..."
+    )
+    
+    observaciones = st.text_area(
+        "Observaciones o Resultados",
+        placeholder="Ej: Valores normales, se observa fractura, inflamación detectada..."
+    )
+    
+    # Carga de imagen
+    st.subheader("📷 Cargar Imagen del Estudio")
+    uploaded_file = st.file_uploader(
+        "Selecciona una imagen (JPG, PNG, PDF)",
+        type=['jpg', 'jpeg', 'png', 'pdf'],
+        help="Puedes subir una foto de la radiografía, análisis o estudio médico"
+    )
+    
+    # Preview de la imagen
+    if uploaded_file is not None:
+        if uploaded_file.type.startswith('image/'):
+            image = Image.open(uploaded_file)
+            st.image(image, caption="Vista previa de la imagen", use_column_width=True)
+        else:
+            st.info("📄 Archivo PDF cargado correctamente")
+    
+    submitted_estudio = st.form_submit_button("🔬 Guardar Estudio Médico")
+    
+    if submitted_estudio:
+        if not tipo_estudio or not zona or not zona.strip() or not razon or not razon.strip():
+            st.error("❌ Los campos 'Tipo de Estudio', 'Zona del Cuerpo' y 'Razón del Estudio' son obligatorios.")
+        else:
+            with st.spinner("Guardando estudio médico..."):
+                # Convertir imagen a base64 si existe
+                imagen_base64 = None
+                if uploaded_file is not None:
+                    try:
+                        if uploaded_file.type.startswith('image/'):
+                            # Para imágenes
+                            image = Image.open(uploaded_file)
+                            # Redimensionar si es muy grande
+                            if image.width > 1024 or image.height > 1024:
+                                image.thumbnail((1024, 1024), Image.Resampling.LANCZOS)
+                            
+                            # Convertir a RGB si es necesario
+                            if image.mode in ("RGBA", "P"):
+                                image = image.convert("RGB")
+                            
+                            # Convertir a bytes
+                            img_byte_arr = io.BytesIO()
+                            image.save(img_byte_arr, format='JPEG', quality=85)
+                            img_byte_arr = img_byte_arr.getvalue()
+                            
+                            # Convertir a base64
+                            imagen_base64 = base64.b64encode(img_byte_arr).decode()
+                        else:
+                            # Para PDFs u otros archivos
+                            file_bytes = uploaded_file.read()
+                            imagen_base64 = base64.b64encode(file_bytes).decode()
+                            
+                    except Exception as e:
+                        st.error(f"Error al procesar la imagen: {str(e)}")
+                        imagen_base64 = None
+                
+                success = insertar_estudio_medico(
+                    dni=dni,
+                    tipo_estudio=tipo_estudio,
+                    fecha_estudio=fecha_estudio,
+                    zona=zona,
+                    razon=razon,
+                    observaciones=observaciones,
+                    imagen_base64=imagen_base64,
+                    conn=conn
+                )
+                
+                if success:
+                    st.success("✅ ¡Estudio médico guardado exitosamente!")
+                    st.rerun()
+                else:
+                    st.error("❌ Hubo un error al guardar el estudio médico.")
+
+# --- 8. Información adicional ---
+st.divider()
+st.info("💡 **Tip:** Mantén siempre actualizado tu historial médico para un mejor seguimiento de tu salud.")
