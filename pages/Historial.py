@@ -9,10 +9,41 @@ import io
 
 # --- Configuración de la Página ---
 st.set_page_config(
-    page_title="Historial Clínico - MedCheck",
-    page_icon="🏥",
-    layout="centered"
+    
+    page_title="MedCheck - Historial",
+    page_icon="⚕️",
+    layout="wide"
 )
+st.markdown('<h1 class="main-title">🏥 <span class="medcheck-text">MedCheck</span> - Historial Clínico</h1>', unsafe_allow_html=True)
+
+# Custom CSS styling
+st.markdown("""
+    <style>
+    .main-title {
+        color: #800020;  /* Burgundy color */
+        font-size: 3em;
+        font-weight: bold;
+        margin-bottom: 1em;
+    }
+    .subtitle {
+        color: #2E4053;  /* Dark blue-gray */
+        font-size: 1.5em;
+        margin-bottom: 1em;
+    }
+    .stButton>button {
+        background-color: #800020 !important;
+        color: white !important;
+    }
+    .stButton>button:hover {
+        background-color: #600010 !important;
+        color: white !important;
+    }
+    .medcheck-text {
+        color: #800020;  /* Burgundy color */
+        font-weight: bold;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
 # --- Conexión a la base de datos ---
 conn = connect_to_supabase()

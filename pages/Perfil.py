@@ -10,10 +10,39 @@ conn = connect_to_supabase()
 
 # --- Configuración de la Página ---
 st.set_page_config(
-    page_title="Perfil - MedCheck", 
-    page_icon="👤", 
-    layout="centered"
+    page_title="MedCheck - Perfil",
+    page_icon="⚕️",
+    layout="wide"
 )
+
+# Custom CSS styling
+st.markdown("""
+    <style>
+    .main-title {
+        color: #800020;  /* Burgundy color */
+        font-size: 3em;
+        font-weight: bold;
+        margin-bottom: 1em;
+    }
+    .subtitle {
+        color: #2E4053;  /* Dark blue-gray */
+        font-size: 1.5em;
+        margin-bottom: 1em;
+    }
+    .stButton>button {
+        background-color: #800020 !important;
+        color: white !important;
+    }
+    .stButton>button:hover {
+        background-color: #600010 !important;
+        color: white !important;
+    }
+    .medcheck-text {
+        color: #800020;  /* Burgundy color */
+        font-weight: bold;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
 # --- 1. Verificación de Sesión de Usuario ---
 dni = st.session_state.get("dni")
@@ -37,7 +66,7 @@ if not encuesta_df.empty and not encuesta_df.iloc[0]["encuesta_realizada"]:
     st.stop()
 
 # --- 3. Header de Bienvenida ---
-st.title(f"👋 ¡Hola, {st.session_state.get('nombre', 'Usuario')}!")
+st.markdown('<h1 class="main-title">👤 <span class="medcheck-text">MedCheck</span> - Perfil</h1>', unsafe_allow_html=True)
 st.write("Bienvenido a tu perfil médico. Desde aquí puedes generar informes para tus consultas o emergencias.")
 st.divider()
 

@@ -3,6 +3,8 @@ from fEncuesta import get_paciente
 from fEncuesta import insert_historial
 from fEncuesta import insert_paciente
 from datetime import date, datetime
+from functions import connect_to_supabase
+conn = connect_to_supabase()
 
 # --- Page Configuration MUST BE THE FIRST STREAMLIT COMMAND ---
 st.set_page_config(
@@ -100,7 +102,7 @@ if not st.session_state.logged_in:
                     st.session_state.nombre = new_name
                     st.success("¡Registro exitoso!")
                     st.session_state.show_register = False
-                    insert_paciente(new_name, fecha_nacimiento, sexo, new_password, int(new_DNI), encuesta_completada=False)
+                    insert_paciente(int(new_DNI), new_name, fecha_nacimiento, sexo, new_password, encuesta_completada=False)
                 else:
                     st.error("Las contraseñas no coinciden o faltan campos.")
 

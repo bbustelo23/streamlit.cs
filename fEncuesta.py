@@ -12,6 +12,7 @@ def get_paciente(dni):
     return execute_query(query, (dni,), is_select=True)
 
 def insert_paciente(dni, nombre, fecha_nacimiento, sexo, password, encuesta_completada=False):
+    conn = connect_to_supabase()
     query = """
     INSERT INTO pacientes (dni, nombre, fecha_nacimiento, sexo, password, encuesta_completada)
     VALUES (%s, %s, %s, %s, %s, %s);
