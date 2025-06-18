@@ -12,16 +12,17 @@ def get_paciente(dni):
     return execute_query(query, (dni,), is_select=True)
 
 def insert_paciente(dni, nombre, fecha_nacimiento, sexo, password, encuesta_completada=False):
-    conn = connect_to_supabase()
     query = """
     INSERT INTO pacientes (dni, nombre, fecha_nacimiento, sexo, contraseña, encuesta_completada)
     VALUES (%s, %s, %s, %s, %s, %s);
     """
+    conn = connect_to_supabase
     params = (dni, nombre, fecha_nacimiento, sexo, password, encuesta_completada)
     return execute_query(query, params=params, conn=conn, is_select=False)
 
 
 def get_id_paciente_por_dni(dni, conn=None):
+    conn = connect_to_supabase
     query = "SELECT id_paciente FROM pacientes WHERE dni = %s;"
     #st.write("Ejecutando consulta con dni:", dni)
     
@@ -56,6 +57,8 @@ def insert_historial(
     if fecha_completado is None:
         fecha_completado = date.today()
 
+    dni = st.session_state('dni')
+    conn = connect_to_supabase() 
     id_paciente = int(get_id_paciente_por_dni(dni, conn=conn))
     if id_paciente is None:
         raise ValueError(f"No se encontró paciente con DNI {dni}")
@@ -95,7 +98,7 @@ def update_encuesta_completada(dni, conn=None):
     """
     query = """
     UPDATE pacientes
-    SET encuesta_completada = TRUE
+    SET encuesta_realizada = TRUE
     WHERE dni = %s;
     """
     params = (dni,)
@@ -103,7 +106,7 @@ def update_encuesta_completada(dni, conn=None):
 
 def get_encuesta_completada(dni, conn=None):
     query = """
-    SELECT encuesta_completada FROM pacientes WHERE dni = %s;
+    SELECT encuesta_realizada FROM pacientes WHERE dni = %s;
     """
     params = (dni,)
     return execute_query(query, params=params, conn=conn, is_select=True)

@@ -10,39 +10,10 @@ conn = connect_to_supabase()
 
 # --- Configuración de la Página ---
 st.set_page_config(
-    page_title="MedCheck - Perfil",
-    page_icon="⚕️",
-    layout="wide"
+    page_title="Perfil - MedCheck", 
+    page_icon="👤", 
+    layout="centered"
 )
-
-# Custom CSS styling
-st.markdown("""
-    <style>
-    .main-title {
-        color: #800020;  /* Burgundy color */
-        font-size: 3em;
-        font-weight: bold;
-        margin-bottom: 1em;
-    }
-    .subtitle {
-        color: #2E4053;  /* Dark blue-gray */
-        font-size: 1.5em;
-        margin-bottom: 1em;
-    }
-    .stButton>button {
-        background-color: #800020 !important;
-        color: white !important;
-    }
-    .stButton>button:hover {
-        background-color: #600010 !important;
-        color: white !important;
-    }
-    .medcheck-text {
-        color: #800020;  /* Burgundy color */
-        font-weight: bold;
-    }
-    </style>
-    """, unsafe_allow_html=True)
 
 # --- 1. Verificación de Sesión de Usuario ---
 dni = st.session_state.get("dni")
@@ -53,7 +24,7 @@ if not dni:
 # --- 2. Verificación de Encuesta Completada ---
 encuesta_df = get_encuesta_completada(dni, conn=conn)
 
-if not encuesta_df.empty and not encuesta_df.iloc[0]["encuesta_realizada"]:
+if not encuesta_df.empty and not encuesta_df.iloc[0]["encuesta_compeltada"]:
     st.warning("**Antes de continuar, necesitamos más información.**")
     st.write(
         "Para poder generar informes precisos y ofrecerte la mejor experiencia, "
@@ -66,7 +37,7 @@ if not encuesta_df.empty and not encuesta_df.iloc[0]["encuesta_realizada"]:
     st.stop()
 
 # --- 3. Header de Bienvenida ---
-st.markdown('<h1 class="main-title">👤 <span class="medcheck-text">MedCheck</span> - Perfil</h1>', unsafe_allow_html=True)
+st.title(f"👋 ¡Hola, {st.session_state.get('nombre', 'Usuario')}!")
 st.write("Bienvenido a tu perfil médico. Desde aquí puedes generar informes para tus consultas o emergencias.")
 st.divider()
 
@@ -230,15 +201,13 @@ def mostrar_informe_guardia_agil(datos):
     
     col1, col2 = st.columns(2)
     
-    with col1:
-        st.markdown("""...""", unsafe_allow_html=True) # Mantener tu HTML
+    with col1: # Mantener tu HTML
         st.write(f"**Nombre:** {datos['nombre']}")
         st.write(f"**DNI:** {datos['dni']}")
-        st.write(f"**Edad:** {datos['edad']} años")
-        st.write(f"**Teléfono:** {datos['telefono']}")
     
     with col2:
-        st.markdown("""...""", unsafe_allow_html=True) # Mantener tu HTML
+        st.write(f"**Edad:** {datos['edad']} años")
+        st.write(f"**Teléfono:** {datos['telefono']}")
         
     
     st.markdown("""<h4 style="color: #ff4757; margin-top: 0;">🚨 Alergias Críticas</h4>""", unsafe_allow_html=True)

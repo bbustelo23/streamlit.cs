@@ -58,7 +58,7 @@ if not dni:
 
 encuesta_completada = get_encuesta_completada(dni, conn=conn)
 
-if not encuesta_completada.empty and not encuesta_completada.iloc[0]["encuesta_realizada"]:
+if not encuesta_completada.empty and not encuesta_completada.iloc[0]["encuesta_completada"]:
     st.warning("Antes de continuar, necesitamos que completes una breve encuesta sobre tu salud y hábitos.")
     if st.button("📝 Completar Encuesta"):
         st.switch_page("pages/_Encuesta.py")   # Ajustá el path según la estructura de tu app
