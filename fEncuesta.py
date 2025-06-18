@@ -14,7 +14,7 @@ def get_paciente(dni):
 def insert_paciente(dni, nombre, fecha_nacimiento, sexo, password, encuesta_completada=False):
     conn = connect_to_supabase()
     query = """
-    INSERT INTO pacientes (dni, nombre, fecha_nacimiento, sexo, password, encuesta_completada)
+    INSERT INTO pacientes (dni, nombre, fecha_nacimiento, sexo, contraseña, encuesta_completada)
     VALUES (%s, %s, %s, %s, %s, %s);
     """
     params = (dni, nombre, fecha_nacimiento, sexo, password, encuesta_completada)
@@ -95,7 +95,7 @@ def update_encuesta_completada(dni, conn=None):
     """
     query = """
     UPDATE pacientes
-    SET encuesta_realizada = TRUE
+    SET encuesta_completada = TRUE
     WHERE dni = %s;
     """
     params = (dni,)
@@ -103,7 +103,7 @@ def update_encuesta_completada(dni, conn=None):
 
 def get_encuesta_completada(dni, conn=None):
     query = """
-    SELECT encuesta_realizada FROM pacientes WHERE dni = %s;
+    SELECT encuesta_completada FROM pacientes WHERE dni = %s;
     """
     params = (dni,)
     return execute_query(query, params=params, conn=conn, is_select=True)
