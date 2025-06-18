@@ -135,7 +135,7 @@ def get_estudios_medicos_recientes(dni, conn=None):
         return None
 
 def insertar_estudio_medico(dni, tipo_estudio, fecha_estudio, zona, razon, observaciones=None, imagen_base64=None, conn=None):
-    """Inserta un nuevo estudio médico usando la tabla Estudios"""
+    """Inserta un nuevo estudio médico usando la tabla Estudios y guarda una imagen si es provista."""
     try:
         # Obtener ID del paciente
         id_paciente = get_id_paciente_por_dni(dni, conn=conn)
@@ -143,110 +143,74 @@ def insertar_estudio_medico(dni, tipo_estudio, fecha_estudio, zona, razon, obser
             st.error("No se pudo encontrar el ID del paciente")
             return False
         id_paciente = int(id_paciente)
-        
-        # Obtener el próximo ID para el estudio
-        get_max_id_query = "SELECT COALESCE(MAX(id_estudio), 0) + 1 as next_id FROM Estudios"
-        result_id = execute_query(get_max_id_query, conn=conn, is_select=True)
-        
-        if result_id is not None and not result_id.empty:
-            next_id = result_id.iloc[0]['next_id']
-        else:
-            next_id = 1
-        
+
         # Combinar razón y observaciones en descripción
         descripcion_completa = razon.strip()
         if observaciones and observaciones.strip():
             descripcion_completa += f" | Observaciones: {observaciones.strip()}"
-        
-        # Insertar estudio médico en la tabla Estudios
+
+        # Insertar estudio médico y devolver el id_estudio generado
         query = """
-        INSERT INTO Estudios 
-        (id_estudio, id_paciente, fecha, tipo, zona, descripcion)
-        VALUES (%s, %s, %s, %s, %s, %s)
+        INSERT INTO estudios (id_paciente, fecha, tipo, zona, descripcion)
+        VALUES (%s, %s, %s, %s, %s)
+        RETURNING id_estudio
         """
-        
         params = (
-            next_id,
             id_paciente,
             fecha_estudio,
             tipo_estudio.strip(),
             zona.strip(),
             descripcion_completa
         )
-        
-        result = execute_query(query, params=params, conn=conn, is_select=False)
-        
-        if result:
-            print(f"Estudio médico insertado exitosamente para paciente ID: {id_paciente}")
-            
+
+        result = execute_query(query, params=params, conn=conn, is_select=True)
+
+        if result is not None and not result.empty:
+            id_estudio = int(result.iloc[0]['id_estudio'])
+            print("Estudio insertado correctamente.")
+
             # Si hay imagen, guardarla en tabla separada
             if imagen_base64:
-                guardar_imagen_estudio(next_id, imagen_base64, conn)
-            
+                guardar_imagen_estudio(id_estudio, id_paciente, imagen_base64, conn)
+
             return True
         else:
-            st.error("Error: No se pudo insertar el estudio médico")
+            st.error("No se pudo insertar el estudio.")
             return False
-            
+
     except Exception as e:
         st.error(f"Error al insertar estudio médico: {str(e)}")
         print(f"Error detallado al insertar estudio: {str(e)}")
         return False
 
-def guardar_imagen_estudio(id_estudio, imagen_base64, conn=None):
-    """Guarda la imagen de un estudio en una tabla separada"""
+
+def guardar_imagen_estudio(id_estudio, id_paciente, imagen_base64, conn=None):
+    """Guarda la imagen de un estudio en la tabla imagenes_estudios"""
     try:
-        # Crear tabla para imágenes si no existe
-        create_images_table = """
-        CREATE TABLE IF NOT EXISTS imagenes_estudios (
-            id_imagen SERIAL PRIMARY KEY,
-            id_estudio INTEGER,
-            imagen_base64 TEXT,
-            fecha_subida TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (id_estudio) REFERENCES Estudios(id_estudio)
-        );
-        """
-        
-        try:
-            execute_query(create_images_table, conn=conn, is_select=False)
-        except Exception as table_error:
-            print(f"Error al crear tabla de imágenes (puede que ya exista): {str(table_error)}")
-        
-        # Insertar imagen (SERIAL se auto-incrementa)
+        # Insertar imagen
         query = """
-        INSERT INTO imagenes_estudios (id_estudio, imagen_base64)
-        VALUES (%s, %s)
+        INSERT INTO imagenes_estudios (id_estudio, id_paciente, imagen_base64)
+        VALUES (%s, %s, %s)
         """
-        
-        result = execute_query(query, params=(id_estudio, imagen_base64), conn=conn, is_select=False)
-        
+        result = execute_query(query, params=(id_estudio, id_paciente, imagen_base64), conn=conn, is_select=False)
+
         if result:
-            print(f"Imagen guardada exitosamente para estudio ID: {id_estudio}")
+            print(f"✅ Imagen guardada para estudio ID: {id_estudio}, paciente ID: {id_paciente}")
             return True
         else:
-            print("Error al guardar imagen del estudio")
+            print("❌ Error al guardar la imagen del estudio")
             return False
-            
+
     except Exception as e:
-        print(f"Error al guardar imagen del estudio: {str(e)}")
+        print(f"❌ Error al guardar imagen del estudio: {str(e)}")
         return False
 
-def get_imagen_estudio(id_estudio, conn=None):
-    """Obtiene la imagen de un estudio específico"""
-    try:
-        query = """
-        SELECT imagen_base64 FROM imagenes_estudios 
-        WHERE id_estudio = %s
-        ORDER BY fecha_subida DESC
-        LIMIT 1
-        """
-        return execute_query(query, params=(id_estudio,), conn=conn, is_select=True)
-    except Exception as e:
-        print(f"Error al obtener imagen del estudio: {str(e)}")
-        return None
+
+
 
 def eliminar_estudio_medico(estudio_id, dni, conn=None):
     """Elimina un estudio médico específico"""
+    id_paciente = int(id_paciente)
     try:
         # Verificar que el estudio pertenece al paciente
         id_paciente = get_id_paciente_por_dni(dni, conn=conn)
@@ -282,6 +246,7 @@ def eliminar_estudio_medico(estudio_id, dni, conn=None):
 def actualizar_estudio_medico(estudio_id, dni, tipo_estudio=None, fecha_estudio=None, 
                             zona=None, descripcion=None, conn=None):
     """Actualiza un estudio médico existente"""
+    
     try:
         # Verificar que el estudio pertenece al paciente
         id_paciente = get_id_paciente_por_dni(dni, conn=conn)

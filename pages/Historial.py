@@ -2,7 +2,7 @@ import streamlit as st
 from datetime import date, datetime
 from fEncuesta import get_id_paciente_por_dni, get_encuesta_completada
 from functions import connect_to_supabase
-from fHistorial import get_estadisticas_estudios, verificar_conexion_y_permisos, actualizar_estudio_medico, get_estudios_medicos_recientes, insertar_estudio_medico, guardar_imagen_estudio, get_imagen_estudio, insertar_evento_medico, get_eventos_medicos_recientes, get_datos_paciente, get_historial_medico
+from fHistorial import get_estadisticas_estudios, verificar_conexion_y_permisos, actualizar_estudio_medico, get_estudios_medicos_recientes, insertar_estudio_medico, guardar_imagen_estudio, insertar_evento_medico, get_eventos_medicos_recientes, get_datos_paciente, get_historial_medico
 import base64
 from PIL import Image
 import io
@@ -253,6 +253,7 @@ with st.form("nuevo_estudio_medico", clear_on_submit=True, border=False):
                         st.error(f"Error al procesar la imagen: {str(e)}")
                         imagen_base64 = None
                 
+                dni = st.session_state.get("dni")
                 success = insertar_estudio_medico(
                     dni=dni,
                     tipo_estudio=tipo_estudio,
