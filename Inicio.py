@@ -138,4 +138,3 @@ else:
 
 
 st.sidebar.write(f"Última actualización: {datetime.now().strftime('%H:%M:%S')}")
-
