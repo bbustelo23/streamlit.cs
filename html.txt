@@ -1,39 +1,772 @@
-import streamlit as st
-import pandas as pd
-from datetime import date
-from functions import execute_query
-from fEncuesta import get_id_paciente_por_dni
+import tempfile
+import webbrowser
+import os
+from datetime import datetime
 
-def get_medicamentos(dni, solo_actuales=False, solo_finalizados=False, conn=None):
-    id_paciente = get_id_paciente_por_dni(dni, conn)
-    query = "SELECT * FROM medicamentos WHERE id_paciente = %s"
-    params = [int(id_paciente)]
-    if solo_actuales:
-        query += " AND fecha_fin IS NULL"
-    if solo_finalizados:
-        query += " AND fecha_fin IS NOT NULL"
-    return pd.read_sql(query, conn, params=params)
-
-def marcar_medicamento_como_finalizado(id_medicamento, conn=None):
-    query = "UPDATE medicamentos SET fecha_fin = %s WHERE id = %s"
-    execute_query(query, params=(date.today(), id_medicamento), conn=conn)
-
-import json # Importante para manejar el JSON
-
-def insertar_medicamento(dni, droga, nombre, gramaje_mg, motivo, fecha_inicio, fecha_fin,
-                         dosis_cantidad, dosis_unidad, frecuencia_tipo, frecuencia_valor, conn=None):
-    id_paciente = int(get_id_paciente_por_dni(dni, conn))
-
-    # Convertir el diccionario de frecuencia_valor a un string JSON para la DB
-    frecuencia_valor_json = json.dumps(frecuencia_valor) if frecuencia_valor else None
-
-    query = """
-        INSERT INTO medicamentos (id_paciente, droga, nombre, gramaje_mg, motivo, fecha_inicio, fecha_fin,
-                                  dosis_cantidad, dosis_unidad, frecuencia_tipo, frecuencia_valor)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+def generar_html_medico(dni, tipo_informe, conn, opciones_personalizadas=None):
     """
-    params = (id_paciente, droga, nombre, gramaje_mg, motivo, fecha_inicio, fecha_fin,
-              dosis_cantidad, dosis_unidad, frecuencia_tipo, frecuencia_valor_json)
-    execute_query(query, params, conn=conn)
+    Genera un HTML con la información médica del usuario y lo abre en una nueva pestaña
+    
+    Args:
+        dni (str): DNI del usuario
+        tipo_informe (str): Tipo de informe ('guardia_agil', 'historial_completo', 'personalizado')
+        conn: Conexión a Supabase
+        opciones_personalizadas (dict): Opciones para informe personalizado
+    """
+    
+    # Obtener datos del usuario
+    datos_usuario = obtener_datos_usuario(dni, conn)
+    
+    if not datos_usuario:
+        st.error("No se pudieron obtener los datos del usuario")
+        return
+    
+    # Generar HTML según el tipo de informe
+    html_content = generar_html_content(datos_usuario, tipo_informe, opciones_personalizadas)
+    
+    # Crear archivo temporal y abrirlo
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False, encoding='utf-8') as f:
+        f.write(html_content)
+        temp_file_path = f.name
+    
+    # Abrir en el navegador
+    webbrowser.open(f'file://{temp_file_path}')
+    
+    return temp_file_path
 
-# No te olvides de actualizar la llamada a esta función en el frontend!
+def obtener_datos_usuario(dni, conn):
+    """
+    Obtiene todos los datos médicos del usuario desde Supabase
+    """
+    try:
+        # Query principal para datos básicos
+        query_basicos = """
+        SELECT 
+            nombre, apellido, fecha_nacimiento, genero, tipo_sangre,
+            telefono, email, contacto_emergencia, telefono_emergencia
+        FROM usuarios 
+        WHERE dni = %s
+        """
+        
+        # Query para medicamentos
+        query_medicamentos = """
+        SELECT medicamento, dosis, frecuencia
+        FROM medicamentos_usuario 
+        WHERE dni = %s AND activo = true
+        """
+        
+        # Query para alergias
+        query_alergias = """
+        SELECT alergia, severidad
+        FROM alergias_usuario 
+        WHERE dni = %s
+        """
+        
+        # Query para condiciones médicas
+        query_condiciones = """
+        SELECT condicion, fecha_diagnostico
+        FROM condiciones_medicas 
+        WHERE dni = %s
+        """
+        
+        # Query para antecedentes familiares
+        query_antecedentes = """
+        SELECT parentesco, condicion
+        FROM antecedentes_familiares 
+        WHERE dni = %s
+        """
+        
+        # Query para vacunas
+        query_vacunas = """
+        SELECT vacuna, fecha_aplicacion, dosis
+        FROM vacunas_usuario 
+        WHERE dni = %s
+        ORDER BY fecha_aplicacion DESC
+        """
+        
+        # Query para estudios
+        query_estudios = """
+        SELECT tipo_estudio, fecha_estudio, resultado
+        FROM estudios_medicos 
+        WHERE dni = %s
+        ORDER BY fecha_estudio DESC
+        """
+        
+        # Query para signos vitales más recientes
+        query_vitales = """
+        SELECT presion_arterial, frecuencia_cardiaca, temperatura, saturacion_oxigeno
+        FROM signos_vitales 
+        WHERE dni = %s
+        ORDER BY fecha_registro DESC
+        LIMIT 1
+        """
+        
+        # Ejecutar queries
+        cursor = conn.cursor()
+        
+        # Datos básicos
+        cursor.execute(query_basicos, (dni,))
+        datos_basicos = cursor.fetchone()
+        
+        if not datos_basicos:
+            return None
+        
+        # Otros datos
+        cursor.execute(query_medicamentos, (dni,))
+        medicamentos = cursor.fetchall()
+        
+        cursor.execute(query_alergias, (dni,))
+        alergias = cursor.fetchall()
+        
+        cursor.execute(query_condiciones, (dni,))
+        condiciones = cursor.fetchall()
+        
+        cursor.execute(query_antecedentes, (dni,))
+        antecedentes = cursor.fetchall()
+        
+        cursor.execute(query_vacunas, (dni,))
+        vacunas = cursor.fetchall()
+        
+        cursor.execute(query_estudios, (dni,))
+        estudios = cursor.fetchall()
+        
+        cursor.execute(query_vitales, (dni,))
+        vitales = cursor.fetchone()
+        
+        # Organizar datos
+        datos_completos = {
+            'basicos': datos_basicos,
+            'medicamentos': medicamentos,
+            'alergias': alergias,
+            'condiciones': condiciones,
+            'antecedentes': antecedentes,
+            'vacunas': vacunas,
+            'estudios': estudios,
+            'vitales': vitales
+        }
+        
+        return datos_completos
+        
+    except Exception as e:
+        st.error(f"Error al obtener datos: {str(e)}")
+        return None
+
+def generar_html_content(datos, tipo_informe, opciones_personalizadas):
+    """
+    Genera el contenido HTML basado en los datos y tipo de informe
+    """
+    
+    # Datos básicos
+    nombre_completo = f"{datos['basicos'][0]} {datos['basicos'][1]}"
+    fecha_nac = datos['basicos'][2]
+    genero = datos['basicos'][3]
+    tipo_sangre = datos['basicos'][4] or "No especificado"
+    telefono = datos['basicos'][5] or "No especificado"
+    email = datos['basicos'][6] or "No especificado"
+    contacto_emergencia = datos['basicos'][7] or "No especificado"
+    tel_emergencia = datos['basicos'][8] or "No especificado"
+    
+    # Calcular edad
+    if fecha_nac:
+        edad = datetime.now().year - fecha_nac.year
+    else:
+        edad = "No especificado"
+    
+    # Generar badge de emergencia (primera alergia crítica)
+    badge_emergencia = ""
+    if datos['alergias']:
+        primera_alergia = datos['alergias'][0][0].upper()
+        badge_emergencia = f'<div class="emergency-badge">ALERGIA: {primera_alergia}</div>'
+    
+    # Generar secciones según tipo de informe
+    secciones_html = ""
+    
+    if tipo_informe == "guardia_agil":
+        secciones_html = generar_seccion_guardia_agil(datos)
+    elif tipo_informe == "historial_completo":
+        secciones_html = generar_seccion_historial_completo(datos)
+    elif tipo_informe == "personalizado":
+        secciones_html = generar_seccion_personalizada(datos, opciones_personalizadas)
+    
+    # Template HTML base
+    html_template = f"""
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Perfil Médico - {nombre_completo}</title>
+        <style>
+            * {{
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }}
+            
+            body {{
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+                min-height: 100vh;
+                padding: 20px;
+            }}
+            
+            .container {{
+                max-width: 1000px;
+                margin: 0 auto;
+                background: white;
+                border-radius: 20px;
+                box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+                overflow: hidden;
+            }}
+            
+            .header {{
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                padding: 30px;
+                position: relative;
+                overflow: hidden;
+            }}
+            
+            .header::before {{
+                content: '';
+                position: absolute;
+                top: -50%;
+                right: -50%;
+                width: 200%;
+                height: 200%;
+                background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+                animation: pulse 4s ease-in-out infinite;
+            }}
+            
+            @keyframes pulse {{
+                0%, 100% {{ transform: scale(1); opacity: 0.5; }}
+                50% {{ transform: scale(1.1); opacity: 0.3; }}
+            }}
+            
+            .header-content {{
+                position: relative;
+                z-index: 1;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }}
+            
+            .patient-info h1 {{
+                font-size: 2.5em;
+                margin-bottom: 10px;
+                font-weight: 700;
+            }}
+            
+            .patient-id {{
+                font-size: 1.1em;
+                opacity: 0.9;
+            }}
+            
+            .emergency-badge {{
+                background: #ff4757;
+                padding: 10px 20px;
+                border-radius: 30px;
+                font-weight: 600;
+                animation: blink 2s ease-in-out infinite;
+            }}
+            
+            @keyframes blink {{
+                0%, 100% {{ opacity: 1; }}
+                50% {{ opacity: 0.8; }}
+            }}
+            
+            .content {{
+                padding: 30px;
+            }}
+            
+            .info-grid {{
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+                gap: 25px;
+                margin-bottom: 30px;
+            }}
+            
+            .info-card {{
+                background: #f8f9fa;
+                padding: 25px;
+                border-radius: 15px;
+                border: 1px solid #e9ecef;
+                transition: all 0.3s ease;
+                position: relative;
+                overflow: hidden;
+            }}
+            
+            .info-card h3 {{
+                color: #495057;
+                font-size: 1.2em;
+                margin-bottom: 15px;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }}
+            
+            .info-item {{
+                margin-bottom: 12px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 8px 0;
+                border-bottom: 1px solid #e9ecef;
+            }}
+            
+            .info-item:last-child {{
+                border-bottom: none;
+                margin-bottom: 0;
+            }}
+            
+            .label {{
+                color: #6c757d;
+                font-size: 0.9em;
+            }}
+            
+            .value {{
+                color: #212529;
+                font-weight: 600;
+            }}
+            
+            .allergy-badge {{
+                display: inline-block;
+                background: #ff6b6b;
+                color: white;
+                padding: 5px 15px;
+                border-radius: 20px;
+                font-size: 0.9em;
+                margin-right: 10px;
+                margin-bottom: 10px;
+            }}
+            
+            .medication-item {{
+                background: white;
+                padding: 15px;
+                border-radius: 8px;
+                margin-bottom: 10px;
+                border: 1px solid #e9ecef;
+            }}
+            
+            .medication-name {{
+                font-weight: 600;
+                color: #212529;
+            }}
+            
+            .medication-dose {{
+                color: #6c757d;
+                font-size: 0.9em;
+            }}
+            
+            .footer {{
+                background: #f8f9fa;
+                padding: 20px 30px;
+                text-align: center;
+                color: #6c757d;
+                font-size: 0.9em;
+            }}
+            
+            .timestamp {{
+                color: #667eea;
+                font-weight: 600;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <div class="header-content">
+                    <div class="patient-info">
+                        <h1>{nombre_completo}</h1>
+                        <div class="patient-id">DNI: {datos['basicos'][0]}</div>
+                    </div>
+                    {badge_emergencia}
+                </div>
+            </div>
+            
+            <div class="content">
+                <div class="info-grid">
+                    <div class="info-card">
+                        <h3>👤 Información Básica</h3>
+                        <div class="info-item">
+                            <span class="label">Fecha de Nacimiento</span>
+                            <span class="value">{fecha_nac}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">Edad</span>
+                            <span class="value">{edad} años</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">Género</span>
+                            <span class="value">{genero}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">Tipo de Sangre</span>
+                            <span class="value">{tipo_sangre}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="info-card">
+                        <h3>📞 Información de Contacto</h3>
+                        <div class="info-item">
+                            <span class="label">Teléfono</span>
+                            <span class="value">{telefono}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">Email</span>
+                            <span class="value">{email}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">Contacto de Emergencia</span>
+                            <span class="value">{contacto_emergencia}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">Teléfono de Emergencia</span>
+                            <span class="value">{tel_emergencia}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                {secciones_html}
+            </div>
+            
+            <div class="footer">
+                Generado el: <span class="timestamp">{datetime.now().strftime('%d/%m/%Y a las %H:%M')}</span> | 
+                Sistema MedCheck
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    return html_template
+
+def generar_seccion_guardia_agil(datos):
+    """Genera secciones para informe de guardia ágil"""
+    html = ""
+    
+    # Alergias críticas
+    if datos['alergias']:
+        alergias_html = ""
+        for alergia in datos['alergias']:
+            alergias_html += f'<div class="allergy-badge">{alergia[0]}</div>'
+        
+        html += f"""
+        <div class="info-card">
+            <h3>⚠️ Alergias Críticas</h3>
+            <div style="margin-top: 15px;">
+                {alergias_html}
+            </div>
+        </div>
+        """
+    
+    # Medicación actual
+    if datos['medicamentos']:
+        medicamentos_html = ""
+        for med in datos['medicamentos']:
+            medicamentos_html += f"""
+            <div class="medication-item">
+                <div class="medication-name">{med[0]}</div>
+                <div class="medication-dose">{med[1]} - {med[2]}</div>
+            </div>
+            """
+        
+        html += f"""
+        <div class="info-card">
+            <h3>💊 Medicación Actual</h3>
+            <div style="margin-top: 15px;">
+                {medicamentos_html}
+            </div>
+        </div>
+        """
+    
+    return html
+
+def generar_seccion_historial_completo(datos):
+    """Genera secciones para historial completo"""
+    html = generar_seccion_guardia_agil(datos)  # Incluye lo básico
+    
+    # Condiciones médicas
+    if datos['condiciones']:
+        condiciones_html = ""
+        for condicion in datos['condiciones']:
+            fecha = condicion[1].strftime('%Y') if condicion[1] else 'Fecha no especificada'
+            condiciones_html += f"""
+            <div class="info-item">
+                <span class="label">{condicion[0]}</span>
+                <span class="value">{fecha}</span>
+            </div>
+            """
+        
+        html += f"""
+        <div class="info-card">
+            <h3>🏥 Condiciones Médicas</h3>
+            {condiciones_html}
+        </div>
+        """
+    
+    # Antecedentes familiares
+    if datos['antecedentes']:
+        antecedentes_html = ""
+        for ant in datos['antecedentes']:
+            antecedentes_html += f"""
+            <div class="info-item">
+                <span class="label">{ant[0]}</span>
+                <span class="value">{ant[1]}</span>
+            </div>
+            """
+        
+        html += f"""
+        <div class="info-card">
+            <h3>👨‍👩‍👧‍👦 Antecedentes Familiares</h3>
+            {antecedentes_html}
+        </div>
+        """
+    
+    return html
+
+def generar_seccion_personalizada(datos, opciones):
+    """Genera secciones según opciones personalizadas"""
+    html = ""
+    
+    if opciones.get('incluir_alergias', False) and datos['alergias']:
+        alergias_html = ""
+        for alergia in datos['alergias']:
+            alergias_html += f'<div class="allergy-badge">{alergia[0]}</div>'
+        
+        html += f"""
+        <div class="info-card">
+            <h3>⚠️ Alergias</h3>
+            <div style="margin-top: 15px;">
+                {alergias_html}
+            </div>
+        </div>
+        """
+    
+    if opciones.get('incluir_medicacion', False) and datos['medicamentos']:
+        medicamentos_html = ""
+        for med in datos['medicamentos']:
+            medicamentos_html += f"""
+            <div class="medication-item">
+                <div class="medication-name">{med[0]}</div>
+                <div class="medication-dose">{med[1]} - {med[2]}</div>
+            </div>
+            """
+        
+        html += f"""
+        <div class="info-card">
+            <h3>💊 Medicación Actual</h3>
+            <div style="margin-top: 15px;">
+                {medicamentos_html}
+            </div>
+        </div>
+        """
+    
+    # Agregar más secciones según las opciones...
+    
+    return html
+
+-----------
+import streamlit as st
+from fEncuesta import get_encuesta_completada
+from functions import connect_to_supabase
+from html_generator import generar_html_medico  # Importar la función
+
+# --- Conexión a la base de datos ---
+conn = connect_to_supabase()
+
+# --- Configuración de la Página ---
+st.set_page_config(
+    page_title="Perfil - MedCheck", 
+    page_icon="👤", 
+    layout="centered"
+)
+
+# --- 1. Verificación de Sesión de Usuario ---
+dni = st.session_state.get("dni")
+if not dni:
+    st.error("⚠️ No has iniciado sesión. Por favor, vuelve a la página de inicio.")
+    st.stop()
+
+# --- 2. Verificación de Encuesta Completada ---
+encuesta_df = get_encuesta_completada(dni, conn=conn)
+
+if not encuesta_df.empty and not encuesta_df.iloc[0]["encuesta_realizada"]:
+    st.warning("**Antes de continuar, necesitamos más información.**")
+    st.write(
+        "Para poder generar informes precisos y ofrecerte la mejor experiencia, "
+        "es fundamental que completes una breve encuesta sobre tu salud y hábitos."
+    )
+    
+    if st.button("📝 Completar Encuesta Médica", type="primary"):
+        st.switch_page("pages/_Encuesta.py")
+    
+    st.stop()
+
+# --- 3. Header de Bienvenida ---
+st.title(f"👋 ¡Hola, {st.session_state.get('nombre', 'Usuario')}!")
+st.write("Bienvenido a tu perfil médico. Desde aquí puedes generar informes para tus consultas o emergencias.")
+st.divider()
+
+# --- 4. Sección de Generación de Informes ---
+st.header("📄 Generar Informe Médico")
+st.write("Crea un informe PDF personalizado según tus necesidades del momento.")
+
+# Menú desplegable para seleccionar el tipo de informe
+tipo_informe = st.selectbox(
+    "Selecciona el tipo de informe que necesitas",
+    options=["guardia_agil", "historial_completo", "personalizado"],
+    format_func=lambda x: {
+        "guardia_agil": "🚑 Guardia Ágil - Para emergencias",
+        "historial_completo": "📋 Historial Completo - Para consultas",
+        "personalizado": "⚙️ Personalizado - Elige qué incluir"
+    }[x],
+    label_visibility="collapsed"
+)
+
+# --- 5. Contenedores de Información y Opciones ---
+# Variables para opciones personalizadas
+opciones_personalizadas = {}
+
+if tipo_informe == "guardia_agil":
+    with st.container(border=True):
+        st.subheader("🚑 Informe de Guardia Ágil")
+        st.write("**Ideal para:** Emergencias y visitas rápidas al hospital.")
+        st.write("**Contenido:** Datos esenciales, alergias críticas, medicación actual y contacto de emergencia.")
+
+elif tipo_informe == "historial_completo":
+    with st.container(border=True):
+        st.subheader("📋 Informe de Historial Completo")
+        st.write("**Ideal para:** Consultas con especialistas, segundas opiniones o estudios complejos.")
+        st.write("**Contenido:** Historial médico detallado, antecedentes familiares y todos los estudios previos.")
+
+elif tipo_informe == "personalizado":
+    with st.container(border=True):
+        st.subheader("⚙️ Informe Personalizado")
+        st.write("Selecciona a continuación los datos que quieres incluir en tu informe:")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            opciones_personalizadas['incluir_alergias'] = st.checkbox("🚨 Incluir Alergias", value=True)
+            opciones_personalizadas['incluir_medicacion'] = st.checkbox("💊 Incluir Medicación Actual", value=True)
+            opciones_personalizadas['incluir_antecedentes'] = st.checkbox("📜 Incluir Antecedentes")
+        with col2:
+            opciones_personalizadas['incluir_vacunas'] = st.checkbox("💉 Incluir Vacunas")
+            opciones_personalizadas['incluir_estudios'] = st.checkbox("🔬 Incluir Estudios Previos")
+            opciones_personalizadas['incluir_contacto'] = st.checkbox("📞 Incluir Contacto de Emergencia", value=True)
+
+st.divider()
+
+# --- 6. Botones de Acción ---
+col1, col2 = st.columns(2)
+
+with col1:
+    if st.button("✨ Generar Informe HTML", type="primary", use_container_width=True):
+        try:
+            with st.spinner("Generando informe médico..."):
+                # Generar el HTML y abrirlo en nueva pestaña
+                archivo_generado = generar_html_medico(
+                    dni=dni,
+                    tipo_informe=tipo_informe,
+                    conn=conn,
+                    opciones_personalizadas=opciones_personalizadas if tipo_informe == "personalizado" else None
+                )
+                
+                if archivo_generado:
+                    st.success("¡Informe generado con éxito!")
+                    st.info("El informe se ha abierto en una nueva pestaña de tu navegador.")
+                else:
+                    st.error("Error al generar el informe")
+                    
+        except Exception as e:
+            st.error(f"Error al generar el informe: {str(e)}")
+
+with col2:
+    if st.button("📥 Generar PDF", use_container_width=True):
+        st.info("Funcionalidad de PDF en desarrollo...")
+        # Aquí puedes agregar la lógica para convertir el HTML a PDF usando librerías como weasyprint o pdfkit
+
+# --- 7. Información adicional ---
+st.divider()
+st.info("""
+**💡 Consejo:** 
+- Para emergencias, usa el informe de Guardia Ágil que contiene solo la información esencial.
+- Para consultas médicas detalladas, el Historial Completo es la mejor opción.
+- El informe Personalizado te permite elegir exactamente qué información incluir.
+""")
+
+# --- 8. Historial de informes generados (opcional) ---
+with st.expander("📋 Ver historial de informes generados"):
+    st.write("Aquí podrías mostrar los últimos informes generados con fechas y tipos.")
+    # Podrías agregar una tabla con el historial si lo deseas
+
+----------------
+# html_generator.py
+
+import tempfile
+import webbrowser
+import streamlit as st
+from datetime import datetime
+
+def generar_html_medico(dni, tipo_informe, conn, opciones_personalizadas=None):
+    """
+    Genera un HTML con la información médica del usuario y lo abre en una nueva pestaña
+    """
+    datos_usuario = obtener_datos_usuario(dni, conn)
+    
+    if not datos_usuario:
+        return None
+    
+    html_content = generar_html_content(datos_usuario, tipo_informe, opciones_personalizadas)
+    
+    # Crear archivo temporal y abrirlo
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False, encoding='utf-8') as f:
+        f.write(html_content)
+        temp_file_path = f.name
+    
+    # Abrir en el navegador
+    webbrowser.open(f'file://{temp_file_path}')
+    
+    return temp_file_path
+
+def obtener_datos_usuario(dni, conn):
+    """Obtiene datos del usuario usando queries SQL simples"""
+    try:
+        # Usar el cliente de Supabase para hacer queries
+        
+        # Datos básicos del usuario
+        response_usuario = conn.table('usuarios').select('*').eq('dni', dni).execute()
+        if not response_usuario.data:
+            return None
+        usuario = response_usuario.data[0]
+        
+        # Medicamentos actuales
+        medicamentos = conn.table('medicamentos_usuario').select('*').eq('dni', dni).eq('activo', True).execute()
+        
+        # Alergias
+        alergias = conn.table('alergias_usuario').select('*').eq('dni', dni).execute()
+        
+        # Condiciones médicas
+        condiciones = conn.table('condiciones_medicas').select('*').eq('dni', dni).execute()
+        
+        # Antecedentes familiares
+        antecedentes = conn.table('antecedentes_familiares').select('*').eq('dni', dni).execute()
+        
+        # Vacunas
+        vacunas = conn.table('vacunas_usuario').select('*').eq('dni', dni).order('fecha_aplicacion', desc=True).execute()
+        
+        # Estudios médicos
+        estudios = conn.table('estudios_medicos').select('*').eq('dni', dni).order('fecha_estudio', desc=True).execute()
+        
+        # Signos vitales más recientes
+        vitales = conn.table('signos_vitales').select('*').eq('dni', dni).order('fecha_registro', desc=True).limit(1).execute()
+        
+        return {
+            'usuario': usuario,
+            'medicamentos': medicamentos.data,
+            'alergias': alergias.data,
+            'condiciones': condiciones.data,
+            'antecedentes': antecedentes.data,
+            'vacunas': vacunas.data,
+            'estudios': estudios.data,
+            'vitales':

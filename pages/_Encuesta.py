@@ -4,42 +4,7 @@ from functions import connect_to_supabase
 
 conn = connect_to_supabase()
 
-st.set_page_config(
-    page_title="MedCheck - Encuesta",
-    page_icon="⚕️",
-    layout="wide"
-)
-
-# Custom CSS styling
-st.markdown("""
-    <style>
-    .main-title {
-        color: #800020;  /* Burgundy color */
-        font-size: 3em;
-        font-weight: bold;
-        margin-bottom: 1em;
-    }
-    .subtitle {
-        color: #2E4053;  /* Dark blue-gray */
-        font-size: 1.5em;
-        margin-bottom: 1em;
-    }
-    .stButton>button {
-        background-color: #800020 !important;
-        color: white !important;
-    }
-    .stButton>button:hover {
-        background-color: #600010 !important;
-        color: white !important;
-    }
-    .medcheck-text {
-        color: #800020;  /* Burgundy color */
-        font-weight: bold;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-st.markdown('<h1 class="main-title">📝 <span class="medcheck-text">MedCheck</span> - Encuesta</h1>', unsafe_allow_html=True)
+st.title("📝 Encuesta médica")
 
 dni = st.session_state.get("dni")
 
@@ -70,8 +35,8 @@ if sigue_dieta == "Sí":
     tipo_dieta = st.text_input("¿Qué tipo de dieta?")
 
 
-estres = st.radio("Estres alto?", ["Si", "No"], index = 1)
-colesterol = st.radio("Colesterol alto?", ["Si", "No"], index=1)
+estres = st.radio("Nivel de Estres:", ["Alto", "Medio", "Bajo"], index = 1)
+colesterol = st.radio("¿Colesterol alto?", ["Si", "No"], index=1)
 
 antecedentes_familiares = st.radio("¿Tenés antecedentes familiares de alguna enfermedad?", ["Sí", "No"], index=1)
 if antecedentes_familiares == "Sí":
@@ -107,14 +72,14 @@ if submit:
     condicion=condicion if tiene_condicion == "Sí" else None,
     medicacion_cronica=medicacion if tiene_condicion == "Sí" and toma_medicacion == "Sí" else None,
     dieta=(sigue_dieta == "Sí"),
-    estres_alto= (estres== "Si"),
+    estres_alto= (estres== "Alto"),
     colesterol_alto = (colesterol=="Si"),
     antecedentes_familiares_enfermedad=enfermedades if antecedentes_familiares == "Sí" else None,
     antecedentes_familiares_familiar=familiares if antecedentes_familiares == "Sí" else None,
     conn=conn
 )
 
-    update_encuesta_completada(dni=st.session_state.dni) 
+    update_encuesta_completada(dni=st.session_state.get(dni)) 
 
     st.success("¡Encuesta completada y guardada con éxito!")
     st.switch_page("Inicio.py")

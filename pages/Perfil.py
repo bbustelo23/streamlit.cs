@@ -24,7 +24,7 @@ if not dni:
 # --- 2. Verificación de Encuesta Completada ---
 encuesta_df = get_encuesta_completada(dni, conn=conn)
 
-if not encuesta_df.empty and not encuesta_df.iloc[0]["encuesta_compeltada"]:
+if not encuesta_df.empty and not encuesta_df.iloc[0]["encuesta_completada"]:
     st.warning("**Antes de continuar, necesitamos más información.**")
     st.write(
         "Para poder generar informes precisos y ofrecerte la mejor experiencia, "

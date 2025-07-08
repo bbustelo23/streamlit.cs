@@ -81,7 +81,7 @@ def execute_query(query, params=None, conn=None, is_select=True):
             conn.rollback()
         return pd.DataFrame() if is_select else False
 
-def add_employee(nombre, dni, telefono, fecha_contratacion, salario):
+
     """
     Adds a new employee to the Empleado table.
     """

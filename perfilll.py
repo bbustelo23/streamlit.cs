@@ -24,7 +24,7 @@ def get_user_data_from_db(dni, conn):
         dict: Un diccionario completo con todos los datos del usuario.
     """
     try:
-        conn=connect_to_supabase
+        conn=connect_to_supabase()
         # 1. Query principal para unir pacientes e historial_medico
         main_query = """
             SELECT 

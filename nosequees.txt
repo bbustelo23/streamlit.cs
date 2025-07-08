@@ -1,0 +1,203 @@
+import streamlit as st
+from fEncuesta import get_encuesta_completada
+from functions import connect_to_supabase
+from html_generator import generar_html_medico  # Importar la función
+
+# --- Conexión a la base de datos ---
+conn = connect_to_supabase()
+
+# --- Configuración de la Página ---
+st.set_page_config(
+    page_title="Perfil - MedCheck", 
+    page_icon="👤", 
+    layout="centered"
+)
+
+# --- 1. Verificación de Sesión de Usuario ---
+dni = st.session_state.get("dni")
+if not dni:
+    st.error("⚠️ No has iniciado sesión. Por favor, vuelve a la página de inicio.")
+    st.stop()
+
+# --- 2. Verificación de Encuesta Completada ---
+encuesta_df = get_encuesta_completada(dni, conn=conn)
+
+if not encuesta_df.empty and not encuesta_df.iloc[0]["encuesta_realizada"]:
+    st.warning("**Antes de continuar, necesitamos más información.**")
+    st.write(
+        "Para poder generar informes precisos y ofrecerte la mejor experiencia, "
+        "es fundamental que completes una breve encuesta sobre tu salud y hábitos."
+    )
+    
+    if st.button("📝 Completar Encuesta Médica", type="primary"):
+        st.switch_page("pages/_Encuesta.py")
+    
+    st.stop()
+
+# --- 3. Header de Bienvenida ---
+st.title(f"👋 ¡Hola, {st.session_state.get('nombre', 'Usuario')}!")
+st.write("Bienvenido a tu perfil médico. Desde aquí puedes generar informes para tus consultas o emergencias.")
+st.divider()
+
+# --- 4. Sección de Generación de Informes ---
+st.header("📄 Generar Informe Médico")
+st.write("Crea un informe PDF personalizado según tus necesidades del momento.")
+
+# Menú desplegable para seleccionar el tipo de informe
+tipo_informe = st.selectbox(
+    "Selecciona el tipo de informe que necesitas",
+    options=["guardia_agil", "historial_completo", "personalizado"],
+    format_func=lambda x: {
+        "guardia_agil": "🚑 Guardia Ágil - Para emergencias",
+        "historial_completo": "📋 Historial Completo - Para consultas",
+        "personalizado": "⚙️ Personalizado - Elige qué incluir"
+    }[x],
+    label_visibility="collapsed"
+)
+
+# --- 5. Contenedores de Información y Opciones ---
+# Variables para opciones personalizadas
+opciones_personalizadas = {}
+
+if tipo_informe == "guardia_agil":
+    with st.container(border=True):
+        st.subheader("🚑 Informe de Guardia Ágil")
+        st.write("**Ideal para:** Emergencias y visitas rápidas al hospital.")
+        st.write("**Contenido:** Datos esenciales, alergias críticas, medicación actual y contacto de emergencia.")
+
+elif tipo_informe == "historial_completo":
+    with st.container(border=True):
+        st.subheader("📋 Informe de Historial Completo")
+        st.write("**Ideal para:** Consultas con especialistas, segundas opiniones o estudios complejos.")
+        st.write("**Contenido:** Historial médico detallado, antecedentes familiares y todos los estudios previos.")
+
+elif tipo_informe == "personalizado":
+    with st.container(border=True):
+        st.subheader("⚙️ Informe Personalizado")
+        st.write("Selecciona a continuación los datos que quieres incluir en tu informe:")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            opciones_personalizadas['incluir_alergias'] = st.checkbox("🚨 Incluir Alergias", value=True)
+            opciones_personalizadas['incluir_medicacion'] = st.checkbox("💊 Incluir Medicación Actual", value=True)
+            opciones_personalizadas['incluir_antecedentes'] = st.checkbox("📜 Incluir Antecedentes")
+        with col2:
+            opciones_personalizadas['incluir_vacunas'] = st.checkbox("💉 Incluir Vacunas")
+            opciones_personalizadas['incluir_estudios'] = st.checkbox("🔬 Incluir Estudios Previos")
+            opciones_personalizadas['incluir_contacto'] = st.checkbox("📞 Incluir Contacto de Emergencia", value=True)
+
+st.divider()
+
+# --- 6. Botones de Acción ---
+col1, col2 = st.columns(2)
+
+with col1:
+    if st.button("✨ Generar Informe HTML", type="primary", use_container_width=True):
+        try:
+            with st.spinner("Generando informe médico..."):
+                # Generar el HTML y abrirlo en nueva pestaña
+                archivo_generado = generar_html_medico(
+                    dni=dni,
+                    tipo_informe=tipo_informe,
+                    conn=conn,
+                    opciones_personalizadas=opciones_personalizadas if tipo_informe == "personalizado" else None
+                )
+                
+                if archivo_generado:
+                    st.success("¡Informe generado con éxito!")
+                    st.info("El informe se ha abierto en una nueva pestaña de tu navegador.")
+                else:
+                    st.error("Error al generar el informe")
+                    
+        except Exception as e:
+            st.error(f"Error al generar el informe: {str(e)}")
+
+with col2:
+    if st.button("📥 Generar PDF", use_container_width=True):
+        st.info("Funcionalidad de PDF en desarrollo...")
+        # Aquí puedes agregar la lógica para convertir el HTML a PDF usando librerías como weasyprint o pdfkit
+
+# --- 7. Información adicional ---
+st.divider()
+st.info("""
+**💡 Consejo:** 
+- Para emergencias, usa el informe de Guardia Ágil que contiene solo la información esencial.
+- Para consultas médicas detalladas, el Historial Completo es la mejor opción.
+- El informe Personalizado te permite elegir exactamente qué información incluir.
+""")
+
+# --- 8. Historial de informes generados (opcional) ---
+with st.expander("📋 Ver historial de informes generados"):
+    st.write("Aquí podrías mostrar los últimos informes generados con fechas y tipos.")
+    # Podrías agregar una tabla con el historial si lo deseas
+
+----------------
+# html_generator.py
+
+import tempfile
+import webbrowser
+import streamlit as st
+from datetime import datetime
+
+def generar_html_medico(dni, tipo_informe, conn, opciones_personalizadas=None):
+    """
+    Genera un HTML con la información médica del usuario y lo abre en una nueva pestaña
+    """
+    datos_usuario = obtener_datos_usuario(dni, conn)
+    
+    if not datos_usuario:
+        return None
+    
+    html_content = generar_html_content(datos_usuario, tipo_informe, opciones_personalizadas)
+    
+    # Crear archivo temporal y abrirlo
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False, encoding='utf-8') as f:
+        f.write(html_content)
+        temp_file_path = f.name
+    
+    # Abrir en el navegador
+    webbrowser.open(f'file://{temp_file_path}')
+    
+    return temp_file_path
+
+def obtener_datos_usuario(dni, conn):
+    """Obtiene datos del usuario usando queries SQL simples"""
+    try:
+        # Usar el cliente de Supabase para hacer queries
+        
+        # Datos básicos del usuario
+        response_usuario = conn.table('usuarios').select('*').eq('dni', dni).execute()
+        if not response_usuario.data:
+            return None
+        usuario = response_usuario.data[0]
+        
+        # Medicamentos actuales
+        medicamentos = conn.table('medicamentos_usuario').select('*').eq('dni', dni).eq('activo', True).execute()
+        
+        # Alergias
+        alergias = conn.table('alergias_usuario').select('*').eq('dni', dni).execute()
+        
+        # Condiciones médicas
+        condiciones = conn.table('condiciones_medicas').select('*').eq('dni', dni).execute()
+        
+        # Antecedentes familiares
+        antecedentes = conn.table('antecedentes_familiares').select('*').eq('dni', dni).execute()
+        
+        # Vacunas
+        vacunas = conn.table('vacunas_usuario').select('*').eq('dni', dni).order('fecha_aplicacion', desc=True).execute()
+        
+        # Estudios médicos
+        estudios = conn.table('estudios_medicos').select('*').eq('dni', dni).order('fecha_estudio', desc=True).execute()
+        
+        # Signos vitales más recientes
+        vitales = conn.table('signos_vitales').select('*').eq('dni', dni).order('fecha_registro', desc=True).limit(1).execute()
+        
+        return {
+            'usuario': usuario,
+            'medicamentos': medicamentos.data,
+            'alergias': alergias.data,
+            'condiciones': condiciones.data,
+            'antecedentes': antecedentes.data,
+            'vacunas': vacunas.data,
+            'estudios': estudios.data,
+            'vitales':

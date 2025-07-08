@@ -16,13 +16,13 @@ def insert_paciente(dni, nombre, fecha_nacimiento, sexo, password, encuesta_comp
     INSERT INTO pacientes (dni, nombre, fecha_nacimiento, sexo, contraseña, encuesta_completada)
     VALUES (%s, %s, %s, %s, %s, %s);
     """
-    conn = connect_to_supabase
+    conn = connect_to_supabase()
     params = (dni, nombre, fecha_nacimiento, sexo, password, encuesta_completada)
     return execute_query(query, params=params, conn=conn, is_select=False)
 
 
 def get_id_paciente_por_dni(dni, conn=None):
-    conn = connect_to_supabase
+    conn = connect_to_supabase()
     query = "SELECT id_paciente FROM pacientes WHERE dni = %s;"
     #st.write("Ejecutando consulta con dni:", dni)
     
@@ -57,7 +57,7 @@ def insert_historial(
     if fecha_completado is None:
         fecha_completado = date.today()
 
-    dni = st.session_state('dni')
+    dni = st.session_state.get('dni')
     conn = connect_to_supabase() 
     id_paciente = int(get_id_paciente_por_dni(dni, conn=conn))
     if id_paciente is None:
