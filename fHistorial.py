@@ -353,3 +353,43 @@ def verificar_conexion_y_permisos(dni, conn=None):
         
     except Exception as e:
         return False, f"Error en verificación: {str(e)}"
+
+def actualizar_historial_medico(dni, datos_actualizados, conn=None):
+    """
+    Actualiza los datos de la encuesta de un paciente en la tabla historial_medico.
+    
+    Args:
+        dni (str): DNI del paciente.
+        datos_actualizados (dict): Un diccionario con las columnas a actualizar y sus nuevos valores.
+        conn: Conexión a la base de datos.
+        
+    Returns:
+        bool: True si la actualización fue exitosa, False en caso contrario.
+    """
+    if not datos_actualizados:
+        print("No hay datos para actualizar.")
+        return False
+
+    # Obtener el id_paciente a partir del DNI
+    id_paciente = get_id_paciente_por_dni(dni, conn)
+    if not id_paciente:
+        print(f"No se encontró paciente con DNI {dni}")
+        return False
+
+    # Construir la parte SET de la consulta SQL dinámicamente
+    set_clause = ", ".join([f"{key} = %s" for key in datos_actualizados.keys()])
+    params = list(datos_actualizados.values())
+    params.append(id_paciente)
+
+    query = f"""
+        UPDATE historial_medico
+        SET {set_clause}
+        WHERE id_paciente = %s
+    """
+    
+    try:
+        execute_query(query, params=params, conn=conn, is_select=False)
+        return True
+    except Exception as e:
+        print(f"Error al actualizar el historial médico: {e}")
+        return False

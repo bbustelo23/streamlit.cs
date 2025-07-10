@@ -98,18 +98,46 @@ def update_encuesta_completada(dni, conn=None):
     """
     query = """
     UPDATE pacientes
-    SET encuesta_realizada = TRUE
+    SET encuesta_completada = TRUE
     WHERE dni = %s;
     """
     params = (dni,)
     return execute_query(query, params=params, conn=conn, is_select=False)
 
-def get_encuesta_completada(dni, conn=None):
+#def get_encuesta_completada(dni, conn=None):
     query = """
-    SELECT encuesta_realizada FROM pacientes WHERE dni = %s;
+    SELECT encuesta_completada FROM pacientes WHERE dni = %s;
     """
     params = (dni,)
     return execute_query(query, params=params, conn=conn, is_select=True)
+
+
+def get_encuesta_completada(dni, conn=None):
+    """
+    Verifica si un paciente ha completado la encuesta buscando una entrada
+    en la tabla historial_medico.
+    Devuelve un DataFrame con una columna 'encuesta_completada' (True/False).
+    """
+    # Primero, obtenemos el id_paciente a partir del DNI
+    id_paciente_query = "SELECT id_paciente FROM pacientes WHERE dni = %s"
+    df_id = execute_query(id_paciente_query, params=(dni,), conn=conn, is_select=True)
+
+    if df_id.empty:
+        # Si no se encuentra el paciente, se asume que la encuesta no está completada.
+        return pd.DataFrame([{'encuesta_completada': False}])
+
+    id_paciente = df_id.iloc[0]['id_paciente']
+
+    # Ahora, verificamos si existe una entrada para ese paciente en historial_medico
+    historial_query = "SELECT EXISTS (SELECT 1 FROM historial_medico WHERE id_paciente = %s)"
+    params = (int(id_paciente),)
+    df_exists = execute_query(historial_query, params=params, conn=conn, is_select=True)
+
+    # El resultado de la consulta EXISTS es un booleano en la columna 'exists'
+    encuesta_completada = df_exists.iloc[0]['exists'] if not df_exists.empty else False
+
+    # Devolvemos el resultado en el formato que el resto del código espera
+    return pd.DataFrame([{'encuesta_completada': encuesta_completada}])
 
 # fEncuesta.py - Funciones para manejo de responsables, pacientes e historial médico
 
