@@ -354,6 +354,7 @@ def verificar_conexion_y_permisos(dni, conn=None):
     except Exception as e:
         return False, f"Error en verificación: {str(e)}"
 
+# Reemplaza la función existente en tu archivo fHistorial.py con esta versión.
 def actualizar_historial_medico(dni, datos_actualizados, conn=None):
     """
     Actualiza los datos de la encuesta de un paciente en la tabla historial_medico.
@@ -370,26 +371,37 @@ def actualizar_historial_medico(dni, datos_actualizados, conn=None):
         print("No hay datos para actualizar.")
         return False
 
-    # Obtener el id_paciente a partir del DNI
-    id_paciente = get_id_paciente_por_dni(dni, conn)
-    if not id_paciente:
-        print(f"No se encontró paciente con DNI {dni}")
-        return False
-
-    # Construir la parte SET de la consulta SQL dinámicamente
-    set_clause = ", ".join([f"{key} = %s" for key in datos_actualizados.keys()])
-    params = list(datos_actualizados.values())
-    params.append(id_paciente)
-
-    query = f"""
-        UPDATE historial_medico
-        SET {set_clause}
-        WHERE id_paciente = %s
-    """
-    
     try:
+        # Obtener el id_paciente a partir del DNI
+        id_paciente = get_id_paciente_por_dni(dni, conn)
+        if not id_paciente:
+            st.error(f"No se encontró un paciente con el DNI proporcionado.")
+            return False
+        
+        # CORRECCIÓN: Asegurarse de que el id_paciente sea un entero.
+        # Este era el error principal. La base de datos espera un número para 'id_paciente',
+        # y si no se convierte, la consulta UPDATE falla.
+        id_paciente = int(id_paciente)
+
+        # Construir la parte SET de la consulta SQL dinámicamente
+        # Se añaden comillas dobles a las claves para mayor robustez en SQL.
+        set_clause = ", ".join([f'"{key}" = %s' for key in datos_actualizados.keys()])
+        params = list(datos_actualizados.values())
+        params.append(id_paciente)
+
+        query = f"""
+            UPDATE historial_medico
+            SET {set_clause}
+            WHERE id_paciente = %s
+        """
+        
+        # execute_query debería manejar el commit de la transacción.
         execute_query(query, params=params, conn=conn, is_select=False)
+        
+        # Si la consulta no lanza una excepción, asumimos que fue exitosa.
         return True
+
     except Exception as e:
-        print(f"Error al actualizar el historial médico: {e}")
+        st.error(f"Error al actualizar el historial médico: {str(e)}")
+        print(f"Error detallado al actualizar historial: {str(e)}")
         return False

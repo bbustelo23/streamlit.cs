@@ -170,3 +170,42 @@ def obtener_lugares_por_medico(id_medico):
     cur.close()
     conn.close()
     return lugares if lugares else ["Lugar no especificado"]
+
+
+def obtener_turnos_mes(año, mes, dni):
+    """
+    Obtiene los turnos de un mes específico para un paciente.
+    CORREGIDO: Ahora también selecciona y devuelve la columna 'hora'.
+    """
+    conn = connect_to_supabase()
+    cur = conn.cursor()
+    # Se agrega t.hora a la consulta SELECT
+    cur.execute("""
+        SELECT t.id_turno, t.fecha, t.hora, p.nombre AS paciente, m.nombre AS medico, t.lugar
+        FROM Turnos t
+        JOIN Pacientes p ON t.id_paciente = p.id_paciente
+        JOIN Medicos m ON t.id_medico = m.id_medico
+        WHERE EXTRACT(MONTH FROM t.fecha) = %s
+          AND EXTRACT(YEAR FROM t.fecha) = %s
+          AND p.dni = %s
+        ORDER BY t.fecha, t.hora
+    """, (mes, año, dni))
+    datos = cur.fetchall()
+    cur.close()
+    conn.close()
+    # Se agrega "Hora" a la lista de columnas del DataFrame
+    return pd.DataFrame(datos, columns=["ID", "Fecha", "Hora", "Paciente", "Médico", "Lugar"])
+
+def editar_turno(id_turno, nueva_fecha, nueva_hora, nuevo_lugar):
+    """
+    Actualiza la fecha, hora y lugar de un turno existente.
+    CORREGIDO: Ahora también actualiza la columna 'hora'.
+    """
+    conn = connect_to_supabase()
+    cur = conn.cursor()
+    # Se agrega la actualización de la columna 'hora' en la consulta UPDATE
+    cur.execute("UPDATE Turnos SET fecha = %s, hora = %s, lugar = %s WHERE id_turno = %s", 
+                (nueva_fecha, nueva_hora, nuevo_lugar, id_turno))
+    conn.commit()
+    cur.close()
+    conn.close()
