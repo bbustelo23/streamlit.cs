@@ -11,7 +11,7 @@ from functions import connect_to_supabase, execute_query
 
 # --- 0. Función UNIFICADA y MEJORADA con QUERIES SQL (CON CACHÉ) ---
 @st.cache_data
-def get_user_data_from_db(dni):
+def get_datos_paciente(dni):
     """
     Obtiene los datos completos del usuario mediante consultas SQL directas,
     uniendo las tablas necesarias para mayor eficiencia.
@@ -139,7 +139,7 @@ if not dni:
     st.stop()
 
 # La llamada a la función ahora usa la caché
-user_data = get_user_data_from_db(dni)
+user_data = get_datos_paciente(dni)
 
 if user_data is None:
     st.error(f"Error: No se encontraron datos para el DNI '{dni}'.")
