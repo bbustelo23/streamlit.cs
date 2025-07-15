@@ -2,222 +2,261 @@ import streamlit as st
 import calendar
 import pandas as pd
 from datetime import datetime, timedelta, date
-import psycopg2
-from fCalendario import obtener_todos_los_medicos, obtener_lugares_por_medico, obtener_dias_con_turnos, obtener_turnos_mes, eliminar_turno, editar_turno, obtener_o_crear_paciente, obtener_o_crear_medico, guardar_turno
+
+# Se asume que estas funciones existen y funcionan correctamente en fCalendario.py
+from fCalendario import (
+    obtener_todos_los_medicos, 
+    obtener_lugares_por_medico, 
+    obtener_dias_con_turnos, 
+    obtener_turnos_mes, 
+    eliminar_turno, 
+    editar_turno, 
+    obtener_o_crear_paciente, 
+    obtener_o_crear_medico, 
+    guardar_turno
+)
 from fEncuesta import get_encuesta_completada
 from functions import connect_to_supabase
 
-conn = connect_to_supabase()
-
-# archivo: calendario_turnos_app.py
-
-# 🗕️ UI - Calendario
-# ------------------------
-
+# --- Configuración de la Página ---
 st.set_page_config(
     page_title="MedCheck - Calendario",
-    page_icon="⚕️",
+    page_icon="📅",
     layout="wide"
 )
 
-# Custom CSS styling
+# --- Estilos CSS Mejorados ---
 st.markdown("""
     <style>
-    .main-title {
-        color: #800020;  /* Burgundy color */
-        font-size: 3em;
-        font-weight: bold;
-        margin-bottom: 1em;
-    }
-    .subtitle {
-        color: #2E4053;  /* Dark blue-gray */
-        font-size: 1.5em;
-        margin-bottom: 1em;
-    }
-    .stButton>button {
-        background-color: #800020 !important;
-        color: white !important;
-    }
-    .stButton>button:hover {
-        background-color: #600010 !important;
-        color: white !important;
-    }
-    .medcheck-text {
-        color: #800020;  /* Burgundy color */
-        font-weight: bold;
-    }
+        /* --- Estilos Generales --- */
+        .main-title { color: #800020; font-size: 2.5em; font-weight: bold; }
+        .medcheck-text { color: #800020; }
+        .stButton>button {
+            background-color: #800020 !important;
+            color: white !important;
+            border: none;
+            border-radius: 5px;
+        }
+        .stButton>button:hover { background-color: #600010 !important; }
+        
+        /* --- Estilos del Calendario --- */
+        .calendar-container {
+            font-family: 'Inter', sans-serif;
+        }
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 5px;
+            text-align: center;
+        }
+        .day-name { font-weight: bold; color: #555; padding-bottom: 10px; }
+        .day-cell {
+            padding: 10px 5px;
+            border-radius: 8px;
+            position: relative;
+            min-height: 60px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid transparent;
+        }
+        .day-other-month { color: #ccc; }
+        .day-today .day-number {
+            background-color: #800020;
+            color: white;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            line-height: 30px;
+            display: block;
+        }
+        .dot {
+            height: 6px;
+            width: 6px;
+            background-color: #5cb85c;
+            border-radius: 50%;
+            display: inline-block;
+            margin-top: 4px;
+        }
+
+        /* --- Estilos de Tarjetas de Turno --- */
+        .card {
+            background-color: #FFFFFF;
+            border: 1px solid #E0E0E0;
+            border-left: 5px solid #800020;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+        }
+        .card-title {
+            font-size: 1.1em;
+            font-weight: bold;
+            color: #333;
+        }
+        .card-content {
+            font-size: 0.95em;
+            color: #555;
+            margin: 8px 0;
+        }
     </style>
     """, unsafe_allow_html=True)
 
-st.markdown('<h1 class="main-title">📅 <span class="medcheck-text">MedCheck</span> - Calendario</h1>', unsafe_allow_html=True)
-dni = st.session_state.get("dni")
+# --- Título Principal ---
+st.markdown('<h1 class="main-title">📅 <span class="medcheck-text">MedCheck</span> - Calendario de Turnos</h1>', unsafe_allow_html=True)
+st.divider()
 
+# --- Verificación de Sesión y Encuesta ---
+conn = connect_to_supabase()
+dni = st.session_state.get("dni")
 if not dni:
     st.warning("No hay un DNI cargado en sesión.")
     st.stop()
-
 encuesta_completada = get_encuesta_completada(dni, conn=conn)
-
 if not encuesta_completada.empty and not encuesta_completada.iloc[0]["encuesta_completada"]:
-    st.warning("Antes de continuar, necesitamos que completes una breve encuesta sobre tu salud y hábitos.")
+    st.warning("Antes de continuar, necesitas completar tu encuesta de salud.")
     if st.button("📝 Completar Encuesta"):
-        st.switch_page("pages/_Encuesta.py")   # Ajustá el path según la estructura de tu app
-
+        st.switch_page("pages/_Encuesta.py")
     st.stop()
 
+# --- Inicialización de Fecha ---
 if "current_date" not in st.session_state:
-    st.session_state.current_date = datetime.today().replace(day=1)
+    st.session_state.current_date = datetime.today()
 
-col1, col2, col3 = st.columns([1, 2, 1])
-with col1:
-    if st.button("← Mes anterior"):
-        st.session_state.current_date -= timedelta(days=1)
-        st.session_state.current_date = st.session_state.current_date.replace(day=1)
-with col3:
-    if st.button("Mes siguiente →"):
-        year = st.session_state.current_date.year
-        month = st.session_state.current_date.month + 1
-        if month > 12:
-            month = 1
-            year += 1
-        st.session_state.current_date = datetime(year, month, 1)
+# --- Layout Principal en Dos Columnas ---
+col_main, col_sidebar = st.columns([2, 1])
 
-current_date = st.session_state.current_date
-st.subheader(current_date.strftime("%B %Y").upper())
-
-# Colorear días con turnos
-dias_con_turnos = obtener_dias_con_turnos(current_date.year, current_date.month, dni)
-
-# Render calendario visual
-cal = calendar.Calendar(firstweekday=6)
-month_days = cal.monthdatescalendar(current_date.year, current_date.month)
-
-def render_classic_calendar():
-    dias = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"]
-    st.markdown("<style>table, th, td {border:1px solid #000; text-align: center; font-size: 18px;} th {background-color: #f0f0f0;}</style>", unsafe_allow_html=True)
-    tabla = "<table style='width:100%; table-layout: fixed;'>"
-    tabla += "<tr>" + "".join([f"<th>{dia}</th>" for dia in dias]) + "</tr>"
-    for semana in month_days:
-        tabla += "<tr>"
-        for dia in semana:
-            color = "#eee" if dia.month != current_date.month else "#fff"
-            if dia in dias_con_turnos:
-                color = "#b3e6b3"
-            hoy = date.today()
-            estilo = f"background-color:{color}; padding:15px;"
-            if dia == hoy:
-                estilo += "border: 2px solid #000; font-weight: bold;"
-            tabla += f"<td style='{estilo}'>{dia.day}</td>"
-        tabla += "</tr>"
-    tabla += "</table>"
-    st.markdown(tabla, unsafe_allow_html=True)
-
-render_classic_calendar()
-
-# ------------------------
-# ➕ Agendar Turno
-
-if "agregando_nuevo_medico" not in st.session_state:
-    st.session_state.agregando_nuevo_medico = False
-
-# ------------------------
-st.markdown("### ➕ Agendar Turno Médico")
-
-medicos_disponibles = obtener_todos_los_medicos()
-opciones_medicos = [f"{m[1]}" for m in medicos_disponibles] + ["➕ Ingresar un médico nuevo"]
-opcion_elegida = st.selectbox("Médico", opciones_medicos, key="selector_medico")
-
-if opcion_elegida == "➕ Ingresar un médico nuevo":
-    st.session_state.agregando_nuevo_medico = True
-else:
-    st.session_state.agregando_nuevo_medico = False
-
-with st.form("form_turno"):
-    fecha = st.date_input("Fecha del turno", value=date.today())
-    hora = st.time_input("Hora del turno", value=datetime.now().time())
-    dni_paciente = st.text_input("DNI del paciente", value=dni)
+# --- Columna Principal (Izquierda) ---
+with col_main:
+    # --- Navegación del Calendario ---
+    nav_col1, nav_col2, nav_col3 = st.columns([1, 2, 1])
+    with nav_col1:
+        if st.button("← Mes Anterior", use_container_width=True):
+            st.session_state.current_date = (st.session_state.current_date.replace(day=1) - timedelta(days=1)).replace(day=1)
+    with nav_col3:
+        if st.button("Mes Siguiente →", use_container_width=True):
+            st.session_state.current_date = (st.session_state.current_date.replace(day=28) + timedelta(days=4)).replace(day=1)
     
-    if st.session_state.agregando_nuevo_medico:
-        col_m1, col_m2, col_m3= st.columns(3)
-        with col_m1:
-            nombre_medico = st.text_input("Nombre del médico")
-        with col_m2:
-            especialidad_medico = st.text_input("Especialidad del médico")
-        with col_m3:
-            lugar_seleccionado = st.text_input("Lugar del turno")
-        usar_medico_existente = False  
+    current_date = st.session_state.current_date
+    with nav_col2:
+        st.subheader(current_date.strftime("%B %Y").capitalize())
+
+    # --- Renderizado del Calendario Mejorado ---
+    st.markdown('<div class="calendar-container">', unsafe_allow_html=True)
+    dias_con_turnos = obtener_dias_con_turnos(current_date.year, current_date.month, dni)
+    cal = calendar.Calendar(firstweekday=6) # Domingo como primer día
+    month_days = cal.monthdatescalendar(current_date.year, current_date.month)
+    
+    dias_semana_nombres = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"]
+    header_html = "".join([f'<div class="day-name">{day}</div>' for day in dias_semana_nombres])
+    st.markdown(f'<div class="calendar-grid">{header_html}</div>', unsafe_allow_html=True)
+
+    calendar_html = '<div class="calendar-grid">'
+    for week in month_days:
+        for day in week:
+            day_class = "day-cell"
+            if day.month != current_date.month:
+                day_class += " day-other-month"
+            if day == date.today():
+                day_class += " day-today"
+            
+            dot_html = '<span class="dot"></span>' if day in dias_con_turnos else ""
+            calendar_html += f'<div class="{day_class}"><span class="day-number">{day.day}</span>{dot_html}</div>'
+    calendar_html += '</div>'
+    st.markdown(calendar_html, unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    st.divider()
+
+    # --- Listado de Turnos del Mes ---
+    st.subheader("📋 Turnos Agendados para este Mes")
+    df_turnos = obtener_turnos_mes(current_date.year, current_date.month, dni)
+
+    if not df_turnos.empty:
+        for i, row in df_turnos.iterrows():
+            with st.container():
+                st.markdown(f"""
+                    <div class="card">
+                        <div class="card-title">🩺 {row['Médico']}</div>
+                        <div class="card-content">
+                            <strong>Fecha:</strong> {row['Fecha'].strftime('%d/%m/%Y')} a las {row['Hora'].strftime('%H:%M')} hs<br>
+                            <strong>Lugar:</strong> {row['Lugar']}
+                        </div>
+                    </div>
+                """, unsafe_allow_html=True)
+                
+                with st.expander("✏️ Editar o Eliminar Turno"):
+                    with st.form(f"edit_form_{row['ID']}", border=False):
+                        nueva_fecha = st.date_input("Nueva fecha", value=row["Fecha"], key=f"fecha_{i}")
+                        nueva_hora = st.time_input("Nueva hora", value=row["Hora"], key=f"hora_{i}")
+                        nuevo_lugar = st.text_input("Nuevo lugar", value=row["Lugar"], key=f"lugar_{i}")
+
+                        edit_col, del_col = st.columns(2)
+                        with edit_col:
+                            if st.form_submit_button("✅ Guardar Cambios", use_container_width=True):
+                                editar_turno(row["ID"], nueva_fecha, nueva_hora, nuevo_lugar)
+                                st.success("Turno actualizado.")
+                                st.rerun()
+                        with del_col:
+                            if st.form_submit_button("🗑️ Eliminar Turno", type="secondary", use_container_width=True):
+                                eliminar_turno(row["ID"])
+                                st.warning("Turno eliminado.")
+                                st.rerun()
     else:
-        usar_medico_existente = True
-        # Buscar el ID del médico seleccionado
-        id_medico = None
-        for m in medicos_disponibles:
-            if f"{m[1]}" == opcion_elegida:
-                id_medico = m[0]
-                break
+        st.info("No hay turnos agendados para este mes.")
+
+# --- Columna Lateral (Derecha) ---
+with col_sidebar:
+    st.subheader("➕ Agendar Nuevo Turno")
+    
+    with st.form("form_turno", border=False):
+        # Detalles del Médico
+        st.write("**Detalles del Médico**")
+        medicos_disponibles = obtener_todos_los_medicos()
+        opciones_medicos = ["Seleccionar médico existente"] + [f"{m[1]}" for m in medicos_disponibles]
+        opcion_elegida = st.selectbox("Médico", opciones_medicos, key="selector_medico", label_visibility="collapsed")
         
-        if id_medico:
-            lugares = obtener_lugares_por_medico(id_medico)
-            lugar_seleccionado = st.selectbox("Seleccionar lugar del turno", lugares)
-        else:
-            lugar_seleccionado = st.text_input("Lugar del turno")
+        with st.expander("➕ Ingresar un médico nuevo"):
+            nombre_medico_nuevo = st.text_input("Nombre del nuevo médico")
+            especialidad_medico_nuevo = st.text_input("Especialidad del nuevo médico")
 
-    enviar = st.form_submit_button("Guardar Turno")
-
-    if enviar:
-        try:
-            if dni_paciente.strip() and lugar_seleccionado.strip():
-                id_paciente = obtener_o_crear_paciente(dni_paciente.strip())
-
-                if usar_medico_existente and id_medico:
-                    guardar_turno(id_paciente, id_medico, fecha, hora, lugar_seleccionado)
-                    st.success("✅ Turno guardado correctamente")
-                    st.rerun()  # Recargar la página para mostrar los cambios
-                elif not usar_medico_existente:
-                    if nombre_medico.strip() and especialidad_medico.strip():
-                        id_medico_nuevo = obtener_o_crear_medico(nombre_medico.strip(), especialidad_medico.strip(), lugar_seleccionado.strip())
-                        guardar_turno(id_paciente, id_medico_nuevo, fecha, hora, lugar_seleccionado)
-                        st.success("✅ Turno guardado correctamente con nuevo médico")
-                        st.rerun()  # Recargar la página para mostrar los cambios
-                    else:
-                        st.warning("Por favor completá nombre y especialidad del nuevo médico.")
-                else:
-                    st.error("Error: No se pudo obtener el ID del médico seleccionado.")
+        # Fecha y Lugar
+        st.write("**Fecha y Lugar del Turno**")
+        fecha = st.date_input("Fecha", value=date.today())
+        hora = st.time_input("Hora", value=datetime.now().time())
+        
+        id_medico_seleccionado = None
+        if opcion_elegida != "Seleccionar médico existente":
+            for m in medicos_disponibles:
+                if f"{m[1]}" == opcion_elegida:
+                    id_medico_seleccionado = m[0]
+                    break
+            if id_medico_seleccionado:
+                lugares = obtener_lugares_por_medico(id_medico_seleccionado)
+                lugar_seleccionado = st.selectbox("Lugar", lugares)
             else:
-                st.warning("Por favor completá DNI del paciente y lugar del turno.")
-        except Exception as e:
-            st.error(f"Error al guardar el turno: {str(e)}")
+                lugar_seleccionado = st.text_input("Lugar")
+        else:
+            lugar_seleccionado = st.text_input("Lugar")
 
-# ------------------------
-# 📋 Listado + Edición y Eliminación
-# ------------------------
-st.markdown("### 📋 Turnos del Mes")
-df = obtener_turnos_mes(current_date.year, current_date.month, dni)
-
-if not df.empty:
-    for i, row in df.iterrows():
-        with st.expander(f"🗕️ {row['Fecha'].strftime('%d/%m/%Y')} - {row['Paciente']}"):
-            st.text(f"Médico: {row['Médico']}")
-            st.text(f"Lugar: {row['Lugar']}")
-            nueva_fecha = st.date_input(f"Editar fecha (ID {row['ID']})", value=row["Fecha"], key=f"fecha_{i}")
-            nuevo_lugar = st.text_input("Editar lugar", value=row["Lugar"], key=f"lugar_{i}")
-            col_ed, col_el = st.columns([1, 1])
-            with col_ed:
-                if st.button("✅ Guardar cambios", key=f"editar_{i}"):
-                    try:
-                        editar_turno(row["ID"], nueva_fecha, nuevo_lugar)
-                        st.success("Turno actualizado.")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Error al actualizar turno: {str(e)}")
-            with col_el:
-                if st.button("🗑️ Eliminar turno", key=f"eliminar_{i}"):
-                    try:
-                        eliminar_turno(row["ID"])
-                        st.warning("Turno eliminado.")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Error al eliminar turno: {str(e)}")
-else:
-    st.info("No hay turnos agendados este mes.")
-
-#------------------------------------------------------------------------
+        if st.form_submit_button("💾 Guardar Turno", type="primary", use_container_width=True):
+            id_paciente = obtener_o_crear_paciente(dni)
+            
+            # Lógica para guardar
+            if nombre_medico_nuevo and especialidad_medico_nuevo:
+                id_medico = obtener_o_crear_medico(nombre_medico_nuevo, especialidad_medico_nuevo)
+                guardar_turno(id_paciente, id_medico, fecha, hora, lugar_seleccionado)
+                st.success("Turno guardado con nuevo médico.")
+                st.rerun()
+            elif id_medico_seleccionado:
+                guardar_turno(id_paciente, id_medico_seleccionado, fecha, hora, lugar_seleccionado)
+                st.success("Turno guardado.")
+                st.rerun()
+            else:
+                st.warning("Por favor, selecciona un médico existente o ingresa los datos de uno nuevo.")

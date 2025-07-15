@@ -2,109 +2,52 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-import numpy as np
-from functions import execute_query, connect_to_supabase
-from fEncuesta import obtener_edad, get_id_paciente_por_dni, tiene_antecedente_enfermedad_por_dni
+from functions import connect_to_supabase
+# Se importan las funciones corregidas del nuevo archivo fEstadisticas.py
+from festa import load_medical_profiles, load_user_medical_history, map_user_profile_to_comparison, calculate_similarity
 
+# --- Configuración de la Página ---
+st.set_page_config(
+    page_title="Análisis de Riesgo - MedCheck",
+    page_icon="📊",
+    layout="wide"
+)
 
-def load_medical_profiles():
-    """Cargar perfiles médicos desde la base de datos"""
-    try:
-        query = "SELECT * FROM perfiles_medicos"
-        df = execute_query(query, is_select=True)
-        return df
-    except Exception as e:
-        st.error(f"Error cargando perfiles médicos: {e}")
-        return pd.DataFrame()
-
-def load_user_medical_history():
-    """Cargar historial médico del usuario de la sesión actual desde la base de datos"""
-    try:
-        dni = st.session_state.get("dni")
-        if not dni:
-            return None
-            
-        id_paciente = int(get_id_paciente_por_dni(dni))
-        if not id_paciente:
-            return None
-
-        query = "SELECT * FROM historial_medico WHERE id_paciente = %s"
-        df = execute_query(query, params=(id_paciente,), is_select=True)
-        
-        if not df.empty:
-            # Diccionario original con posibles tipos de NumPy (ej: numpy.int64)
-            data_numpy = df.iloc[0].to_dict()
-            data = {key: value.item() if hasattr(value, 'item') else value for key, value in data_numpy.items()}
-
-            data['id_paciente'] = id_paciente
-            return data
-            
-        return None
-    except Exception as e:
-        st.error(f"Error cargando tu historial médico: {e}")
-        return None
-
-# El resto del código no necesita cambios, ya que el problema se soluciona en el origen de los datos.
-# Sin embargo, para máxima seguridad, también haré una pequeña conversión explícita
-# al llamar al gráfico de gauge, por si `calculate_similarity` devolviera un `numpy.float64`.
-
-def map_user_profile_to_comparison(user_data):
-    """Mapear datos del historial médico del usuario al formato de comparación."""
-    dni = st.session_state.get("dni")
-    conn = connect_to_supabase()
-    
-    mapped_profile = {
-        'edad': obtener_edad(user_data.get('id_paciente')),
-        'genero': user_data.get('genero') or user_data.get('sexo'),
-        'actividad_fisica': user_data.get('actividad_fisica'),
-        'fumador': user_data.get('fumador'),
-        'alcohol_frecuente': user_data.get('consume_alcohol') or user_data.get('alcohol_frecuente') or user_data.get('bebe_alcohol'),
-        'antecedentes_familiares_cancer': tiene_antecedente_enfermedad_por_dni(dni, 'cancer', conn=conn),
-        'antecedentes_familiares_diabetes': tiene_antecedente_enfermedad_por_dni(dni, 'diabetes', conn=conn),
-        'antecedentes_familiares_hipertension': tiene_antecedente_enfermedad_por_dni(dni, 'hipertension', conn=conn),
-        'presion_arterial_alta': user_data.get('presion_alta') or user_data.get('presion_arterial_alta') or user_data.get('hipertension'),
-        'colesterol_alto': user_data.get('colesterol_alto') or user_data.get('colesterol_elevado'),
-        'estres_alto': user_data.get('nivel_estres') == 'Alto' if user_data.get('nivel_estres') else user_data.get('estres_alto')
-    }
-    return mapped_profile
-
-def calculate_similarity(user_profile, disease_profiles):
-    """Calcular similitud entre perfil del usuario y perfiles de enfermedad"""
-    similarities = []
-    characteristics = [
-        'actividad_fisica', 'fumador', 'alcohol_frecuente',
-        'antecedentes_familiares_cancer', 'antecedentes_familiares_diabetes',
-        'antecedentes_familiares_hipertension', 'colesterol_alto', 'estres_alto'
-    ]
-
-    for _, profile in disease_profiles.iterrows():
-        matches = 0
-        total_characteristics = 0
-        for char in characteristics:
-            # Se añade .get(char) para evitar KeyError si la columna no existe en un perfil
-            if user_profile.get(char) is not None and profile.get(char) is not None:
-                if user_profile.get(char) == profile.get(char):
-                    matches += 1
-                total_characteristics += 1
-
-        if user_profile.get('edad') and profile.get('edad'):
-            if abs(user_profile.get('edad') - profile.get('edad')) <= 10:
-                matches += 1
-            total_characteristics += 1
-        
-        if total_characteristics > 0:
-            similarity_percentage = (matches / total_characteristics) * 100
-            similarities.append(similarity_percentage)
-
-    return np.mean(similarities) if similarities else 0
+# --- Estilos CSS para el nuevo diseño ---
+st.markdown("""
+    <style>
+        .main-title { color: #800020; font-size: 2.5em; font-weight: bold; }
+        .medcheck-text { color: #800020; }
+        .stButton>button {
+            background-color: #800020 !important;
+            color: white !important;
+            border-radius: 8px;
+            border: none;
+            padding: 10px 24px;
+        }
+        .stButton>button:hover { background-color: #600010 !important; }
+        .card {
+            background-color: #FFFFFF;
+            border: 1px solid #E0E0E0;
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+        }
+        .stTabs [data-baseweb="tab-list"] { gap: 24px; }
+        .stTabs [data-baseweb="tab"] { height: 50px; background-color: transparent; padding: 10px; }
+        .stTabs [aria-selected="true"] { background-color: #F8F8F8; font-weight: bold; color: #800020; }
+    </style>
+    """, unsafe_allow_html=True)
 
 def create_risk_gauge(percentage, disease_name):
-    """Crear gráfico de gauge para mostrar porcentaje de riesgo"""
+    """Crea un gráfico de medidor mejorado."""
     fig = go.Figure(go.Indicator(
-        mode = "gauge+number",
-        value = percentage,
+        mode = "gauge+number+delta",
+        value = float(percentage), # Asegurarse de que sea float
+        title = {'text': f"<b>{disease_name}</b>", 'font': {'size': 20}},
         domain = {'x': [0, 1], 'y': [0, 1]},
-        title = {'text': f"Similitud con {disease_name}", 'font': {'size': 16}},
+        delta = {'reference': 50, 'increasing': {'color': "#D9534F"}, 'decreasing': {'color': "#5CB85C"}},
         gauge = {
             'axis': {'range': [None, 100], 'tickwidth': 1, 'tickcolor': "darkblue"},
             'bar': {'color': "#2E3B4E"},
@@ -113,173 +56,114 @@ def create_risk_gauge(percentage, disease_name):
             'bordercolor': "gray",
             'steps': [
                 {'range': [0, 50], 'color': 'lightgreen'},
-                {'range': [50, 75], 'color': 'yellow'},
+                {'range': [50, 75], 'color': 'gold'},
                 {'range': [75, 100], 'color': 'lightcoral'}
             ],
         }
     ))
-    fig.update_layout(height=250, margin=dict(l=20, r=20, t=40, b=20))
+    fig.update_layout(height=300, margin=dict(l=20, r=20, t=50, b=20))
     return fig
 
-def show_statistics_tab():
-    """Mostrar la pestaña de estadísticas para el usuario logueado"""
-    st.header("📊 Mi Análisis de Riesgo Médico")
-    st.write("Compara tu perfil médico con patrones de personas que padecen ciertas enfermedades.")
+# --- INICIO DE LA APLICACIÓN ---
+st.markdown('<h1 class="main-title">📊 <span class="medcheck-text">MedCheck</span> - Análisis de Riesgo</h1>', unsafe_allow_html=True)
+st.write("Compara tu perfil de salud con patrones de riesgo conocidos para obtener una visión general. **Esto no es un diagnóstico médico.**")
+st.divider()
 
-    if not st.session_state.get("dni"):
-        st.warning("⚠️ Por favor, inicia sesión para ver tu análisis de riesgo personalizado.")
-        return
+# --- Verificación de Sesión ---
+conn = connect_to_supabase()
+dni = st.session_state.get("dni")
+if not dni:
+    st.warning("⚠️ Por favor, inicia sesión para ver tu análisis de riesgo personalizado.")
+    st.stop()
 
-    df_profiles = load_medical_profiles()
-    user_medical_data = load_user_medical_history()
+# --- Carga de Datos ---
+df_profiles = load_medical_profiles()
+user_medical_data = load_user_medical_history(dni, conn)
 
-    if df_profiles.empty:
-        st.error("No se pudieron cargar los datos de referencia. El análisis no puede continuar.")
-        return
+if df_profiles.empty:
+    st.error("No se pudieron cargar los datos de referencia. El análisis no puede continuar.")
+    st.stop()
 
-    if not user_medical_data:
-        st.info("ℹ️ Aún no tienes un historial médico registrado. Completa tu perfil para poder realizar un análisis.")
-        return
+if not user_medical_data:
+    st.info("ℹ️ Aún no tienes un historial médico registrado. Completa tu encuesta para poder realizar un análisis.")
+    st.stop()
 
-    with st.expander("📋 Ver Mi Perfil Médico", expanded=False):
-        col1, col2 = st.columns(2)
-        with col1:
-            st.write("**Información Básica:**")
-            st.write(f"• DNI: {st.session_state.get('dni', 'N/A')}")
-            st.write(f"• Edad: {obtener_edad(user_medical_data.get('id_paciente')) or 'N/A'}")
-            st.write(f"• Género: {user_medical_data.get('genero', 'N/A')}")
-        with col2:
-            st.write("**Hábitos y Condiciones:**")
-            habits = []
-            if user_medical_data.get('actividad_fisica'): habits.append("✅ Realizas actividad física")
-            else: habits.append("❌ No realizas actividad física")
-            if user_medical_data.get('fumador'): habits.append("🚬 Fumador")
-            if user_medical_data.get('alcohol_frecuente'): habits.append("🍷 Consumes alcohol frecuentemente")
-            for habit in habits:
-                st.write(f"• {habit}")
-                
-    if st.button("🔍 Analizar Mi Riesgo", type="primary", use_container_width=True):
-        user_profile = map_user_profile_to_comparison(user_medical_data)
+# --- Tarjeta de Perfil de Usuario ---
+with st.container():
+    st.markdown('<div class="card">', unsafe_allow_html=True)
+    st.subheader(f"👤 Perfil de {st.session_state.get('nombre', 'Usuario')}")
+    user_profile_mapped = map_user_profile_to_comparison(user_medical_data)
+    
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Edad", f"{user_profile_mapped.get('edad', 'N/A')} años")
+    with col2:
+        st.metric("Actividad Física", "Sí" if user_profile_mapped.get('actividad_fisica') else "No")
+    with col3:
+        st.metric("Fumador", "Sí" if user_profile_mapped.get('fumador') else "No")
+    
+    if st.button("🔍 Analizar Mi Riesgo", type="primary"):
+        st.session_state.analysis_done = True
+    st.markdown('</div>', unsafe_allow_html=True)
 
-        if sum(1 for v in user_profile.values() if v is not None) < 5:
-            st.warning("⚠️ Tu perfil tiene información limitada. Los resultados pueden no ser precisos.")
+# --- Resultados del Análisis (si se ha hecho) ---
+if st.session_state.get("analysis_done", False):
+    st.divider()
+    st.header("📈 Resultados del Análisis")
 
-        st.subheader("📈 Resultados del Análisis")
-        
-        diseases = df_profiles['enfermedad'].unique()
-        diseases = [d for d in diseases if d and d.lower() != 'saludable']
+    diseases = df_profiles['enfermedad'].unique()
+    diseases = [d for d in diseases if d and d.lower() != 'saludable']
 
-        results = []
-        for disease in diseases:
-            disease_profiles = df_profiles[df_profiles['enfermedad'] == disease]
-            similarity = calculate_similarity(user_profile, disease_profiles)
-            results.append({'enfermedad': disease, 'similitud': similarity})
+    results = []
+    for disease in diseases:
+        disease_profiles = df_profiles[df_profiles['enfermedad'] == disease]
+        similarity, factors_df = calculate_similarity(user_profile_mapped, disease_profiles)
+        results.append({
+            'enfermedad': disease, 
+            'similitud': similarity,
+            'factores': factors_df
+        })
 
-        results = sorted(results, key=lambda x: x['similitud'], reverse=True)
+    results = sorted(results, key=lambda x: x['similitud'], reverse=True)
 
-        st.write("### 🎯 Similitud con Perfiles de Enfermedades")
+    # --- Pestañas de Resultados ---
+    tab_resumen, tab_detalle, tab_recom = st.tabs(["Resumen de Riesgo", "Análisis Detallado", "Recomendaciones"])
+
+    with tab_resumen:
+        st.subheader("🎯 Similitud con Perfiles de Enfermedades")
         cols = st.columns(min(3, len(results)))
         for i, result in enumerate(results[:3]):
             with cols[i]:
-                # --- PEQUEÑA MEJORA DE ROBUSTEZ ---
-                # Convertimos a float() nativo antes de pasarlo a Plotly, por si acaso.
-                fig = create_risk_gauge(float(result['similitud']), result['enfermedad'])
+                fig = create_risk_gauge(result['similitud'], result['enfermedad'])
                 st.plotly_chart(fig, use_container_width=True)
-                
-                sim_value = result['similitud']
-                if sim_value >= 75:
-                    st.error(f"**Alta similitud ({sim_value:.1f}%)**", icon="⚠️")
-                elif sim_value >= 50:
-                    st.warning(f"**Similitud moderada ({sim_value:.1f}%)**", icon="⚡")
-                else:
-                    st.success(f"**Baja similitud ({sim_value:.1f}%)**", icon="✅")
 
-        # (El resto del código de la UI no cambia)
-        st.write("### 📊 Detalle de Similitudes")
-        results_df = pd.DataFrame(results)
-        results_df['similitud'] = results_df['similitud'].round(1)
-        results_df.columns = ['Enfermedad', 'Similitud (%)']
-        def color_similarity(val):
-            if val >= 75: return 'background-color: #ffebee'
-            elif val >= 50: return 'background-color: #fff3e0'
-            else: return 'background-color: #e8f5e9'
-        styled_df = results_df.style.applymap(color_similarity, subset=['Similitud (%)'])
-        st.dataframe(styled_df, use_container_width=True, hide_index=True)
+    with tab_detalle:
+        st.subheader("🔬 Comparación de Factores de Riesgo")
+        st.write("Aquí puedes ver qué factores de tu perfil coinciden con los perfiles de riesgo analizados.")
+        
+        for result in results:
+            with st.expander(f"**{result['enfermedad']}** - Similitud: {result['similitud']:.1f}%"):
+                st.dataframe(result['factores'], use_container_width=True, hide_index=True)
 
-        st.write("### 📈 Comparación Visual")
-        fig_bar = px.bar(
-            results_df, x='Similitud (%)', y='Enfermedad', orientation='h',
-            color='Similitud (%)', color_continuous_scale='RdYlGn_r',
-            title="Porcentaje de Similitud por Enfermedad", text='Similitud (%)'
-        )
-        fig_bar.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
-        fig_bar.update_layout(height=400, showlegend=False, yaxis={'categoryorder':'total ascending'})
-        st.plotly_chart(fig_bar, use_container_width=True)
-
-        st.write("### 💡 Recomendaciones Personalizadas")
+    with tab_recom:
+        st.subheader("💡 Recomendaciones Personalizadas")
         recommendations = []
-        if not user_profile.get('actividad_fisica'): recommendations.append("🏃‍♂️ Incorporar actividad física regular (150 min/semana)")
-        if user_profile.get('fumador'): recommendations.append("🚭 Considerar un programa para dejar de fumar")
-        if user_profile.get('alcohol_frecuente'): recommendations.append("🍷 Moderar el consumo de alcohol")
-        if user_profile.get('estres_alto'): recommendations.append("🧘‍♀️ Practicar técnicas de manejo del estrés")
-        if user_profile.get('presion_arterial_alta'): recommendations.append("🩺 Seguimiento regular de la presión arterial")
-        if user_profile.get('colesterol_alto'): recommendations.append("🥗 Dieta baja en grasas saturadas y control del colesterol")
+        if not user_profile_mapped.get('actividad_fisica'): recommendations.append("🏃‍♂️ **Actividad Física:** Incorporar al menos 150 minutos de ejercicio moderado por semana.")
+        if user_profile_mapped.get('fumador'): recommendations.append("🚭 **Dejar de Fumar:** Buscar apoyo y programas para cesación tabáquica es un paso crucial.")
+        if user_profile_mapped.get('alcohol_frecuente'): recommendations.append("🍷 **Moderar Alcohol:** Limitar el consumo de alcohol según las guías de salud.")
+        if user_profile_mapped.get('estres_alto'): recommendations.append("🧘‍♀️ **Manejo del Estrés:** Practicar técnicas como meditación, yoga o mindfulness.")
+        if user_profile_mapped.get('presion_arterial_alta'): recommendations.append("🩺 **Presión Arterial:** Realizar seguimientos regulares y consultar a un médico sobre la dieta y medicación.")
+        if user_profile_mapped.get('colesterol_alto'): recommendations.append("🥗 **Colesterol:** Adoptar una dieta baja en grasas saturadas y trans.")
 
         if recommendations:
-            st.write("**Para reducir tus riesgos potenciales, considera:**")
+            st.write("**Para reducir tus riesgos potenciales, considera los siguientes hábitos:**")
             for rec in recommendations:
-                st.write(f"• {rec}")
+                st.markdown(f"- {rec}")
         else:
             st.success("🎉 ¡Tu perfil muestra hábitos de vida saludables! Continúa así.")
-
-        highest_risk = results[0] if results else None
-        if highest_risk and highest_risk['similitud'] > 50:
-            st.write("### ⚠️ Factor de Mayor Atención")
-            st.info(f""" **{highest_risk['enfermedad']}** muestra la mayor similitud ({highest_risk['similitud']:.1f}%). Recuerda que esto se basa en patrones estadísticos y no es un diagnóstico.""")
-
-        st.write("### ⚕️ Información Importante")
-        st.info(""" **Descargo de responsabilidad:** Este análisis es informativo y no reemplaza una consulta médica. Consulta siempre a un profesional de la salud.""")
-
-
-def main():
-    st.set_page_config(
-        page_title="MedCheck - Estadísticas",
-        page_icon="⚕️",
-        layout="wide"
-    )
-
-    # Custom CSS styling
-    st.markdown("""
-        <style>
-        .main-title {
-            color: #800020;  /* Burgundy color */
-            font-size: 3em;
-            font-weight: bold;
-            margin-bottom: 1em;
-        }
-        .subtitle {
-            color: #2E4053;  /* Dark blue-gray */
-            font-size: 1.5em;
-            margin-bottom: 1em;
-        }
-        .stButton>button {
-            background-color: #800020 !important;
-            color: white !important;
-        }
-        .stButton>button:hover {
-            background-color: #600010 !important;
-            color: white !important;
-        }
-        .medcheck-text {
-            color: #800020;  /* Burgundy color */
-            font-weight: bold;
-        }
-        </style>
-        """, unsafe_allow_html=True)
-
-    st.markdown('<h1 class="main-title">📊 <span class="medcheck-text">MedCheck</span> - Estadísticas</h1>', unsafe_allow_html=True)
-
-    show_statistics_tab()
-
-if __name__ == "__main__":
-    main()
+        
+        st.divider()
+        st.info("""
+            **Descargo de responsabilidad:** Este análisis es informativo y no reemplaza una consulta médica. 
+            Consulta siempre a un profesional de la salud para obtener un diagnóstico y tratamiento adecuados.
+        """)
