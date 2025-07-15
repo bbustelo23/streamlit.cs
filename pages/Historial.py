@@ -95,7 +95,7 @@ with st.container():
 
 
 # --- Pestañas de Navegación (REORDENADAS) ---
-tab1, tab2, tab3 = st.tabs(["Resumen de Encuesta 📊", "Eventos Clínicos 🩺", "Estudios Médicos 🔬"])
+tab1, tab2 = st.tabs(["Resumen de Encuesta 📊", "Eventos Clínicos 🩺"])
 
 # --- Pestaña 1: Resumen de Encuesta ---
 with tab1:
@@ -183,45 +183,46 @@ with tab2:
             enfermedad = st.text_input("Enfermedad o Diagnóstico (*)", placeholder="Ej: Gripe...")
             sintomas = st.text_area("Síntomas", placeholder="Ej: Fiebre alta...")
             medicacion = st.text_area("Medicación", placeholder="Ej: Paracetamol 500mg...")
+            comentario = st.text_area("Comentario", placeholder="Algun comentario...")
             if st.form_submit_button("💾 Guardar Evento"):
                 if not enfermedad.strip():
                     st.error("❌ El campo 'Enfermedad o Diagnóstico' es obligatorio.")
                 else:
-                    insertar_evento_medico(dni=dni, enfermedad=enfermedad, medicacion=medicacion, sintomas=sintomas, conn=conn)
+                    insertar_evento_medico(dni=dni, enfermedad=enfermedad, medicacion=medicacion, sintomas=sintomas, comentarios=comentario, conn=conn)
                     st.success("✅ ¡Evento guardado!")
                     st.rerun()
 
 # --- Pestaña 3: Estudios Médicos ---
-with tab3:
-    st.subheader("Historial de Estudios")
-    estudios = get_estudios_medicos_recientes(dni, conn=conn)
-    if estudios is not None and not estudios.empty:
-        for idx, estudio in estudios.iterrows():
-            with st.container():
-                st.markdown(f"""
-                    <div class="card">
-                        <div class="card-title">📋 {estudio.get('tipo', 'Estudio')} - {estudio.get('fecha', 'N/D')}</div>
-                        <div class="card-content">
-                            <p><strong>Zona del Cuerpo:</strong> {estudio.get('zona', 'N/D')}</p>
-                            <p><strong>Razón:</strong> {estudio.get('descripcion', 'N/D')}</p>
-                        </div>
-                    </div>
-                """, unsafe_allow_html=True)
-                if estudio.get('imagen_base64'):
-                    with st.expander("Ver Imagen del Estudio"):
-                        try:
-                            image_data = base64.b64decode(estudio['imagen_base64'])
-                            st.image(image_data, caption=f"Imagen: {estudio.get('tipo')}", use_column_width=True)
-                            st.download_button("⬇️ Descargar Imagen", image_data, f"estudio_{estudio.get('tipo')}.jpg", "image/jpeg")
-                        except Exception as e:
-                            st.error(f"Error al cargar la imagen: {str(e)}")
-    else:
-        st.info("🔬 **Sin Estudios Registrados:** Usa el formulario para agregar tu primer estudio.")
+#with tab3:
+#    st.subheader("Historial de Estudios")
+#    estudios = get_estudios_medicos_recientes(dni, conn=conn)
+#    if estudios is not None and not estudios.empty:
+#        for idx, estudio in estudios.iterrows():
+#            with st.container():
+#                st.markdown(f"""
+#                    <div class="card">
+#                        <div class="card-title">📋 {estudio.get('tipo', 'Estudio')} - {estudio.get('fecha', 'N/D')}</div>
+#                        <div class="card-content">
+#                            <p><strong>Zona del Cuerpo:</strong> {estudio.get('zona', 'N/D')}</p>
+#                            <p><strong>Razón:</strong> {estudio.get('descripcion', 'N/D')}</p>
+#                        </div>
+#                    </div>
+#                """, unsafe_allow_html=True)
+#                if estudio.get('imagen_base64'):
+#                    with st.expander("Ver Imagen del Estudio"):
+#                        try:
+#                            image_data = base64.b64decode(estudio['imagen_base64'])
+#                            st.image(image_data, caption=f"Imagen: {estudio.get('tipo')}", use_column_width=True)
+#                            st.download_button("⬇️ Descargar Imagen", image_data, f"estudio_{estudio.get('tipo')}.jpg", "image/jpeg")
+#                        except Exception as e:
+#                            st.error(f"Error al cargar la imagen: {str(e)}")
+#    else:
+#        st.info("🔬 **Sin Estudios Registrados:** Usa el formulario para agregar tu primer estudio.")
     
-    with st.expander("🔬 Agregar Nuevo Estudio Médico"):
-        with st.form("nuevo_estudio_medico", clear_on_submit=True, border=False):
-            # ... (código del formulario sin cambios)
-            pass
+#    with st.expander("🔬 Agregar Nuevo Estudio Médico"):
+#        with st.form("nuevo_estudio_medico", clear_on_submit=True, border=False):
+#            # ... (código del formulario sin cambios)
+#            pass
 
 st.divider()
 st.info("💡 **Tip:** Mantén siempre actualizado tu historial médico para un mejor seguimiento de tu salud.")

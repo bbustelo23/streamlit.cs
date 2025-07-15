@@ -50,7 +50,7 @@ def get_eventos_medicos_recientes(dni, conn=None):
         print(f"Error al obtener eventos médicos: {str(e)}")
         return None
 
-def insertar_evento_medico(dni, enfermedad, medicacion, sintomas, comentarios, conn=None):
+def insertar_evento_medico(dni, enfermedad, medicacion, sintomas, comentarios=None, conn=None):
     """Inserta un nuevo evento médico"""
     try:
         # Obtener ID del paciente

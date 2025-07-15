@@ -172,16 +172,17 @@ def obtener_lugares_por_medico(id_medico):
     return lugares if lugares else ["Lugar no especificado"]
 
 
+
 def obtener_turnos_mes(año, mes, dni):
     """
     Obtiene los turnos de un mes específico para un paciente.
-    CORREGIDO: Ahora también selecciona y devuelve la columna 'hora'.
+    CORREGIDO: Ahora selecciona y procesa correctamente la columna 'hora'.
     """
     conn = connect_to_supabase()
-    cur = conn.cursor()
-    # Se agrega t.hora a la consulta SELECT
-    cur.execute("""
-        SELECT t.id_turno, t.fecha, t.hora, p.nombre AS paciente, m.nombre AS medico, t.lugar
+    if not conn: return pd.DataFrame()
+
+    query = """
+        SELECT t.id_turno, t.fecha, t.hora, m.nombre AS medico, t.lugar
         FROM Turnos t
         JOIN Pacientes p ON t.id_paciente = p.id_paciente
         JOIN Medicos m ON t.id_medico = m.id_medico
@@ -189,23 +190,42 @@ def obtener_turnos_mes(año, mes, dni):
           AND EXTRACT(YEAR FROM t.fecha) = %s
           AND p.dni = %s
         ORDER BY t.fecha, t.hora
-    """, (mes, año, dni))
-    datos = cur.fetchall()
-    cur.close()
-    conn.close()
-    # Se agrega "Hora" a la lista de columnas del DataFrame
-    return pd.DataFrame(datos, columns=["ID", "Fecha", "Hora", "Paciente", "Médico", "Lugar"])
+    """
+    try:
+        # Usamos pd.read_sql para obtener un DataFrame directamente
+        df = pd.read_sql(query, conn, params=(mes, año, dni))
+        
+        # Asegurarse de que las columnas de fecha y hora tengan el tipo correcto
+        df['Fecha'] = pd.to_datetime(df['fecha']).dt.date
+        df['Hora'] = pd.to_datetime(df['hora'].astype(str)).dt.time
+        
+        # Renombrar columnas para consistencia en el frontend
+        df = df.rename(columns={"id_turno": "ID", "medico": "Médico", "lugar": "Lugar"})
+        return df
+    except Exception as e:
+        st.error(f"Error al obtener turnos del mes: {e}")
+        return pd.DataFrame()
+    finally:
+        if conn: conn.close()
 
 def editar_turno(id_turno, nueva_fecha, nueva_hora, nuevo_lugar):
     """
     Actualiza la fecha, hora y lugar de un turno existente.
-    CORREGIDO: Ahora también actualiza la columna 'hora'.
+    CORREGIDO: Ahora incluye la actualización de la columna 'hora'.
     """
     conn = connect_to_supabase()
-    cur = conn.cursor()
-    # Se agrega la actualización de la columna 'hora' en la consulta UPDATE
-    cur.execute("UPDATE Turnos SET fecha = %s, hora = %s, lugar = %s WHERE id_turno = %s", 
-                (nueva_fecha, nueva_hora, nuevo_lugar, id_turno))
-    conn.commit()
-    cur.close()
-    conn.close()
+    if not conn: return
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE Turnos SET fecha = %s, hora = %s, lugar = %s WHERE id_turno = %s",
+                (nueva_fecha, nueva_hora, nuevo_lugar, id_turno)
+            )
+        conn.commit()
+    except Exception as e:
+        st.error(f"Error al editar el turno: {e}")
+        conn.rollback()
+    finally:
+        if conn: conn.close()
+
+

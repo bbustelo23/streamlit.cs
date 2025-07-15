@@ -1,7 +1,7 @@
 import streamlit as st
 import calendar
 import pandas as pd
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta, date, time
 
 # Se asume que estas funciones existen y funcionan correctamente en fCalendario.py
 from fCalendario import (
@@ -140,7 +140,7 @@ with col_main:
         if st.button("← Mes Anterior", use_container_width=True):
             st.session_state.current_date = (st.session_state.current_date.replace(day=1) - timedelta(days=1)).replace(day=1)
     with nav_col3:
-        if st.button("Mes Siguiente →", use_container_width=True):
+        if st.button("Mes bunda →", use_container_width=True):
             st.session_state.current_date = (st.session_state.current_date.replace(day=28) + timedelta(days=4)).replace(day=1)
     
     current_date = st.session_state.current_date
@@ -229,7 +229,7 @@ with col_sidebar:
         # Fecha y Lugar
         st.write("**Fecha y Lugar del Turno**")
         fecha = st.date_input("Fecha", value=date.today())
-        hora = st.time_input("Hora", value=datetime.now().time())
+        hora = st.time_input("Hora", value=time(9, 0))
         
         id_medico_seleccionado = None
         if opcion_elegida != "Seleccionar médico existente":
