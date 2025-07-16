@@ -1,5 +1,5 @@
 import streamlit as st
-from datetime import date, datetime
+from datetime import date
 # Se asume que estas funciones existen y funcionan correctamente
 from fHistorial import (
     get_estudios_medicos_recientes, 
@@ -140,6 +140,7 @@ with tab1:
                 condicion_edit = st.text_input("Condición crónica", value=datos.get('condicion', ''))
                 medicacion_cronica_edit = st.text_input("Medicación crónica", value=datos.get('medicacion_cronica', ''))
                 
+                
                 st.write("Antecedentes Familiares")
                 familiar_edit = st.text_input("Familiar", value=datos.get('antecedentes_familiares_familiar', ''))
                 enfermedad_familiar_edit = st.text_input("Enfermedad", value=datos.get('antecedentes_familiares_enfermedad', ''))
@@ -159,6 +160,12 @@ with tab1:
                         st.error("❌ Hubo un error al actualizar los datos.")
     else:
         st.warning("📋 **Encuesta Pendiente:** Completa la encuesta médica para ver tu información aquí.")
+
+
+
+
+
+
 
 # --- Pestaña 2: Eventos Clínicos ---
 with tab2:

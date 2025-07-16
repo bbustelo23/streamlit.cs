@@ -378,15 +378,41 @@ def actualizar_historial_medico(dni, datos_actualizados, conn=None):
             st.error(f"No se encontró un paciente con el DNI proporcionado.")
             return False
         
-        # CORRECCIÓN: Asegurarse de que el id_paciente sea un entero.
-        # Este era el error principal. La base de datos espera un número para 'id_paciente',
-        # y si no se convierte, la consulta UPDATE falla.
+        # Asegurarse de que el id_paciente sea un entero
         id_paciente = int(id_paciente)
 
+        # Definir todos los campos válidos de la encuesta médica
+        campos_validos = {
+            'sangre',
+            'telefono', 
+            'emergencia',
+            'peso',
+            'fumador',
+            'alcoholico',
+            'dieta',
+            'actividad_fisica',
+            'estres_alto',
+            'colesterol_alto',
+            'alergias',
+            'suplementos',
+            'condicion',
+            'medicacion_cronica',
+            'vacunas',
+            'antecedentes_familiares_enfermedad',
+            'antecedentes_familiares_familiar',
+            'fecha_completado'
+        }
+        
+        # Filtrar solo los campos válidos
+        datos_filtrados = {k: v for k, v in datos_actualizados.items() if k in campos_validos}
+        
+        if not datos_filtrados:
+            st.error("No se encontraron campos válidos para actualizar.")
+            return False
+
         # Construir la parte SET de la consulta SQL dinámicamente
-        # Se añaden comillas dobles a las claves para mayor robustez en SQL.
-        set_clause = ", ".join([f'"{key}" = %s' for key in datos_actualizados.keys()])
-        params = list(datos_actualizados.values())
+        set_clause = ", ".join([f'"{key}" = %s' for key in datos_filtrados.keys()])
+        params = list(datos_filtrados.values())
         params.append(id_paciente)
 
         query = f"""
@@ -395,13 +421,167 @@ def actualizar_historial_medico(dni, datos_actualizados, conn=None):
             WHERE id_paciente = %s
         """
         
-        # execute_query debería manejar el commit de la transacción.
+        # Ejecutar la consulta
         execute_query(query, params=params, conn=conn, is_select=False)
         
-        # Si la consulta no lanza una excepción, asumimos que fue exitosa.
         return True
 
     except Exception as e:
         st.error(f"Error al actualizar el historial médico: {str(e)}")
         print(f"Error detallado al actualizar historial: {str(e)}")
         return False
+
+
+def crear_formulario_edicion_completo(dni, conn=None):
+    """
+    Crea un formulario completo para editar todos los campos de la encuesta médica.
+    
+    Args:
+        dni (str): DNI del paciente
+        conn: Conexión a la base de datos
+    """
+    st.title("✏️ Editar Encuesta Médica")
+    
+    # Obtener datos actuales del paciente
+    datos_actuales = get_historial_medico_por_dni(dni, conn)
+    
+    if datos_actuales.empty:
+        st.error("No se encontraron datos del historial médico para este paciente.")
+        return
+    
+    # Extraer los datos actuales
+    historial = datos_actuales.iloc[0]
+    
+    # Crear el formulario con todos los campos
+    with st.form("editar_historial_completo"):
+        st.subheader("Información básica")
+        
+        # Tipo de sangre
+        sangre_options = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"]
+        sangre_index = sangre_options.index(historial.get('sangre', 'A-')) if historial.get('sangre') in sangre_options else 1
+        sangre = st.radio("¿Qué tipo de sangre tenés?", sangre_options, index=sangre_index)
+        
+        # Teléfonos
+        telefono = st.text_input("¿Cuál es tu número de teléfono?", value=historial.get('telefono', ''))
+        emergencia = st.text_input("¿Cuál es el número de teléfono de tu contacto de emergencia?", value=historial.get('emergencia', ''))
+        
+        # Peso
+        peso = st.number_input("¿Cuál es tu peso actual (kg)?", min_value=0.0, step=0.1, value=float(historial.get('peso', 0)))
+        
+        st.subheader("Hábitos")
+        
+        # Fumador
+        fumador = st.radio("¿Fumás?", ["Sí", "No"], index=0 if historial.get('fumador') else 1)
+        
+        # Alcohol
+        alcoholico = st.radio("¿Consumís alcohol?", ["Sí", "No"], index=0 if historial.get('alcoholico') else 1)
+        
+        # Actividad física
+        actividad_fisica = st.radio("¿Hacés actividad física?", ["Sí", "No"], index=0 if historial.get('actividad_fisica') == 'Sí' else 1)
+        
+        # Dieta
+        sigue_dieta = st.radio("¿Seguís alguna dieta específica?", ["Sí", "No"], index=0 if historial.get('dieta') else 1)
+        
+        # Estrés
+        estres_options = ["Alto", "Medio", "Bajo"]
+        estres_index = 0 if historial.get('estres_alto') else 1
+        estres = st.radio("Nivel de Estrés:", estres_options, index=estres_index)
+        
+        # Colesterol
+        colesterol = st.radio("¿Colesterol alto?", ["Sí", "No"], index=0 if historial.get('colesterol_alto') else 1)
+        
+        st.subheader("Condiciones médicas")
+        
+        # Condición crónica
+        tiene_condicion = st.radio("¿Tenés alguna condición médica crónica diagnosticada?", ["Sí", "No"], 
+                                 index=0 if historial.get('condicion') else 1)
+        condicion = ""
+        medicacion = ""
+        if tiene_condicion == "Sí":
+            condicion = st.text_input("¿Cuál es la condición?", value=historial.get('condicion', ''))
+            toma_medicacion = st.radio("¿Tomás medicación para esta condición?", ["Sí", "No"], 
+                                     index=0 if historial.get('medicacion_cronica') else 1)
+            if toma_medicacion == "Sí":
+                medicacion = st.text_input("¿Qué medicación tomás?", value=historial.get('medicacion_cronica', ''))
+        
+        # Alergias
+        alergias_actuales = historial.get('alergias', []) or []
+        tiene_alergias = st.radio("¿Tenés alergias?", ["Sí", "No"], index=0 if alergias_actuales else 1)
+        alergias = []
+        if tiene_alergias == "Sí":
+            alergias_text = st.text_area("Lista de alergias (una por línea):", 
+                                       value="\n".join(alergias_actuales) if alergias_actuales else "")
+            alergias = [a.strip() for a in alergias_text.split('\n') if a.strip()]
+        
+        # Suplementos
+        suplementos_actuales = historial.get('suplementos', '')
+        suplementos = st.radio("¿Tomás suplementos?", ["Sí", "No"], index=0 if suplementos_actuales else 1)
+        suplemento = ""
+        if suplementos == "Sí":
+            suplemento = st.text_input("¿Qué suplemento?", value=suplementos_actuales or '')
+        
+        # Vacunas
+        vacunas_actuales = historial.get('vacunas', []) or []
+        tiene_vacuna = st.radio("¿Tenés vacunas puestas?", ["Sí", "No"], index=0 if vacunas_actuales else 1)
+        vacunas = []
+        if tiene_vacuna == "Sí":
+            vacunas_text = st.text_area("Lista de vacunas (una por línea):", 
+                                      value="\n".join(vacunas_actuales) if vacunas_actuales else "")
+            vacunas = [v.strip() for v in vacunas_text.split('\n') if v.strip()]
+        
+        # Antecedentes familiares
+        enfermedades_actuales = historial.get('antecedentes_familiares_enfermedad', []) or []
+        familiares_actuales = historial.get('antecedentes_familiares_familiar', []) or []
+        
+        antecedentes_familiares = st.radio("¿Tenés antecedentes familiares de alguna enfermedad?", ["Sí", "No"], 
+                                         index=0 if enfermedades_actuales else 1)
+        enfermedades = []
+        familiares = []
+        if antecedentes_familiares == "Sí":
+            # Combinar datos actuales para mostrar
+            antecedentes_text = ""
+            if enfermedades_actuales and familiares_actuales:
+                for i, (enf, fam) in enumerate(zip(enfermedades_actuales, familiares_actuales)):
+                    antecedentes_text += f"{fam}: {enf}\n"
+            
+            antecedentes_input = st.text_area("Antecedentes familiares (formato: familiar: enfermedad, uno por línea):",
+                                            value=antecedentes_text)
+            
+            # Procesar input
+            for linea in antecedentes_input.split('\n'):
+                if ':' in linea:
+                    familiar, enfermedad = linea.split(':', 1)
+                    familiares.append(familiar.strip())
+                    enfermedades.append(enfermedad.strip())
+        
+        # Botón de submit
+        submitted = st.form_submit_button("Actualizar Historial Médico")
+        
+        if submitted:
+            # Preparar datos para actualizar
+            datos_actualizados = {
+                'sangre': sangre,
+                'telefono': telefono,
+                'emergencia': emergencia,
+                'peso': peso,
+                'fumador': (fumador == "Sí"),
+                'alcoholico': (alcoholico == "Sí"),
+                'dieta': (sigue_dieta == "Sí"),
+                'actividad_fisica': actividad_fisica,
+                'estres_alto': (estres == "Alto"),
+                'colesterol_alto': (colesterol == "Sí"),
+                'alergias': alergias if tiene_alergias == "Sí" else None,
+                'suplementos': suplemento if suplementos == "Sí" else None,
+                'condicion': condicion if tiene_condicion == "Sí" else None,
+                'medicacion_cronica': medicacion if tiene_condicion == "Sí" and medicacion else None,
+                'vacunas': vacunas if tiene_vacuna == "Sí" else None,
+                'antecedentes_familiares_enfermedad': enfermedades if antecedentes_familiares == "Sí" else None,
+                'antecedentes_familiares_familiar': familiares if antecedentes_familiares == "Sí" else None,
+            }
+            
+            # Actualizar en la base de datos
+            if actualizar_historial_medico(dni, datos_actualizados, conn):
+                st.success("¡Historial médico actualizado exitosamente!")
+                st.rerun()
+            else:
+                st.error("Error al actualizar el historial médico.")
