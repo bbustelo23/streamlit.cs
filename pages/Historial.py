@@ -139,18 +139,23 @@ with tab1:
                 alcoholico_edit = st.checkbox("Consume alcohol regularmente", value=bool(datos.get('alcoholico', False)))
                 condicion_edit = st.text_input("Condición crónica", value=datos.get('condicion', ''))
                 medicacion_cronica_edit = st.text_input("Medicación crónica", value=datos.get('medicacion_cronica', ''))
-                
+                vacunas_edit= st.text_input("Vacunas", value=datos.get('vacunas', ''))
+                alergias_edit= st.text_input("Alergias", value=datos.get('alergias', ''))
+                telefono_edit= st.text_input("Teléfono", value=datos.get('telefono', ''))
+                contacto_emerg_edit= st.text_input("Contacto de emergencia", value=datos.get('contacto_emergencia', ''))
+                suplementos_edit= st.text_input("Suplementos", value=datos.get('suplementos', ''))
                 
                 st.write("Antecedentes Familiares")
                 familiar_edit = st.text_input("Familiar", value=datos.get('antecedentes_familiares_familiar', ''))
-                enfermedad_familiar_edit = st.text_input("Enfermedad", value=datos.get('antecedentes_familiares_enfermedad', ''))
+                enfermedad_familiar_edit = st.text_input("Diagnóstico", value=datos.get('antecedentes_familiares_enfermedad', ''))
 
                 if st.form_submit_button("💾 Guardar Cambios"):
                     datos_actualizados = {
                         "peso": peso_edit, "fumador": fumador_edit, "alcoholico": alcoholico_edit,
                         "condicion": condicion_edit, "medicacion_cronica": medicacion_cronica_edit,
                         "antecedentes_familiares_familiar": familiar_edit,
-                        "antecedentes_familiares_enfermedad": enfermedad_familiar_edit
+                        "antecedentes_familiares_enfermedad": enfermedad_familiar_edit, "vacunas": vacunas_edit,
+                        "alergias":alergias_edit, "telefono": telefono_edit, "contacto_emergencia": contacto_emerg_edit, "suplementos": suplementos_edit
                     }
                     success = actualizar_historial_medico(dni, datos_actualizados, conn)
                     if success:
