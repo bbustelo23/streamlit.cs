@@ -1,23 +1,232 @@
-
 import pandas as pd
 import streamlit as st
 from functions import execute_query
 from functions import connect_to_supabase
 import sqlite3
-from datetime import datetime
+from datetime import date
+
+def execute_query_debug(query, params=None, conn=None, is_select=False):
+    """Versión de execute_query con debugging mejorado"""
+    try:
+        if conn is None:
+            conn = connect_to_supabase()
+        
+        st.write(f"🔍 Ejecutando query: {query}")
+        st.write(f"🔍 Parámetros: {params}")
+        st.write(f"🔍 Es SELECT: {is_select}")
+        
+        cursor = conn.cursor()
+        
+        if params:
+            cursor.execute(query, params)
+        else:
+            cursor.execute(query)
+        
+        if is_select:
+            result = cursor.fetchall()
+            st.write(f"🔍 Resultado SELECT: {result}")
+            return result
+        else:
+            # Para INSERT, UPDATE, DELETE
+            conn.commit()
+            affected_rows = cursor.rowcount
+            st.write(f"🔍 Filas afectadas: {affected_rows}")
+            cursor.close()
+            
+            if affected_rows > 0:
+                st.write("✅ Query ejecutada exitosamente")
+                return True
+            else:
+                st.write("⚠️ Query ejecutada pero no se afectaron filas")
+                return False
+                
+    except Exception as e:
+        st.error(f"❌ Error en execute_query: {str(e)}")
+        import traceback
+        st.write(f"🔍 Traceback: {traceback.format_exc()}")
+        
+        # Rollback en caso de error
+        if conn:
+            conn.rollback()
+        return False
+
+def get_id_paciente_por_dni(dni, conn=None):
+    """Función para obtener el ID del paciente por DNI"""
+    try:
+        if conn is None:
+            conn = connect_to_supabase()
+        
+        st.write(f"🔍 Buscando paciente con DNI: {dni}")
+        query = "SELECT id FROM pacientes WHERE dni = %s"
+        st.write(f"🔍 Query: {query}")
+        
+        result = execute_query(query, params=(dni,), conn=conn, is_select=True)
+        st.write(f"🔍 Resultado de búsqueda: {result}")
+        
+        if result and len(result) > 0:
+            patient_id = result[0][0]
+            st.write(f"✅ Paciente encontrado con ID: {patient_id}")
+            return patient_id
+        else:
+            st.error(f"❌ No se encontró paciente con DNI: {dni}")
+            return None
+            
+    except Exception as e:
+        st.error(f"❌ Error al buscar paciente: {str(e)}")
+        return None
 
 
+def insert_historial(
+    dni,
+    fecha_completado=None,
+    telefono=None,
+    contacto_emergencia=None,
+    tipo_sangre=None,
+    peso=None,
+    fumador=False,
+    alcoholico=False,
+    dieta=None,
+    estres_alto=None,
+    colesterol_alto=None,
+    actividad_fisica=None,
+    alergias=None,
+    suplementos=None,
+    condicion=None,
+    medicacion_cronica=None,
+    vacunas=None,
+    antecedentes_familiares_enfermedad=None,
+    antecedentes_familiares_familiar=None,
+    conn=None
+):
+    try:
+        st.write(f"🔍 DEBUG: Iniciando insert_historial con DNI: {dni}")
+        
+        if fecha_completado is None:
+            fecha_completado = date.today()
+
+        if conn is None:
+            conn = connect_to_supabase()
+            st.write("✅ Conexión a base de datos establecida")
+
+        # Obtener DNI desde session_state si no se pasa como parámetro
+        dni = dni or st.session_state.get('dni')
+        
+        if not dni:
+            raise ValueError("DNI no proporcionado")
+
+        st.write(f"🔍 Buscando paciente con DNI: {dni}")
+        id_paciente = get_id_paciente_por_dni(dni, conn=conn)
+        
+        if id_paciente is None:
+            st.error(f"❌ No se encontró paciente con DNI {dni}")
+            raise ValueError(f"No se encontró paciente con DNI {dni}")
+
+        id_paciente = int(id_paciente)
+        st.write(f"✅ Paciente encontrado con ID: {id_paciente}")
+
+        # Limpiar y validar los datos antes de insertar
+        telefono = telefono.strip() if telefono and telefono.strip() else "No especificado"
+        contacto_emergencia = contacto_emergencia.strip() if contacto_emergencia and contacto_emergencia.strip() else "No especificado"
+        tipo_sangre = tipo_sangre.strip() if tipo_sangre and tipo_sangre.strip() else "No especificado"
+        actividad_fisica = actividad_fisica.strip() if actividad_fisica and actividad_fisica.strip() else "No especificado"
+        
+        # Validar peso - usar None si es 0 o inválido
+        if peso is not None and peso <= 0:
+            peso = None
+            
+        # Corregir la lógica de condición y medicación
+        condicion_db = condicion if condicion else "No tiene"
+        medicacion_db = medicacion_cronica if medicacion_cronica else "No toma"
+
+        # Mostrar todos los valores que se van a insertar
+        st.write("🔍 Valores a insertar:")
+        valores_debug = {
+            'id_paciente': id_paciente,
+            'fecha_completado': fecha_completado,
+            'telefono': telefono,
+            'contacto_emergencia': contacto_emergencia,
+            'tipo_sangre': tipo_sangre,
+            'peso': peso,
+            'fumador': fumador,
+            'alcoholico': alcoholico,
+            'dieta': dieta,
+            'estres_alto': estres_alto,
+            'colesterol_alto': colesterol_alto,
+            'actividad_fisica': actividad_fisica,
+            'condicion': condicion_db,
+            'medicacion_cronica': medicacion_db,
+            'alergias': alergias,
+            'suplementos': suplementos,
+            'vacunas': vacunas,
+            'antecedentes_familiares_enfermedad': antecedentes_familiares_enfermedad,
+            'antecedentes_familiares_familiar': antecedentes_familiares_familiar
+        }
+        
+        for key, value in valores_debug.items():
+            st.write(f"  {key}: {value} (tipo: {type(value)})")
+
+        query = """
+        INSERT INTO historial_medico
+            (id_paciente, fecha_completado, telefono, contacto_emergencia, tipo_sangre, peso, fumador, alcoholico, dieta, estres_alto, colesterol_alto,
+             actividad_fisica, condicion, medicacion_cronica, alergias, suplementos, vacunas, antecedentes_familiares_enfermedad, antecedentes_familiares_familiar)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
+        """
+
+        params = (
+            id_paciente,
+            fecha_completado,
+            telefono,
+            contacto_emergencia,
+            tipo_sangre,
+            peso,
+            fumador,
+            alcoholico,
+            dieta,
+            estres_alto,
+            colesterol_alto,
+            actividad_fisica,
+            condicion_db,
+            medicacion_db,
+            alergias,
+            suplementos,
+            vacunas,
+            antecedentes_familiares_enfermedad,
+            antecedentes_familiares_familiar
+        )
+
+        st.write("🔍 Ejecutando query...")
+        st.write(f"Query: {query}")
+        
+        result = execute_query_debug(query, params=params, conn=conn, is_select=False)
+        
+        st.write(f"🔍 Resultado de execute_query: {result}")
+        
+        if result is not False and result is not None:
+            st.write("✅ Historial insertado exitosamente")
+            return True
+        else:
+            st.error("❌ Error: execute_query retornó False o None")
+            return False
+            
+    except Exception as e:
+        error_msg = f"Error en insert_historial: {str(e)}"
+        st.error(f"❌ {error_msg}")
+        st.write(f"🔍 Tipo de error: {type(e)}")
+        import traceback
+        st.write(f"🔍 Traceback completo: {traceback.format_exc()}")
+        return False
+#nnnnnnnnnnnnnnnnnnnnnnnnnnn
 def get_paciente(dni):
     query = "SELECT * FROM pacientes WHERE dni = %s"
     return execute_query(query, (dni,), is_select=True)
 
-def insert_paciente(dni, nombre, fecha_nacimiento, sexo, password, encuesta_completada=False):
+def insert_paciente(dni, nombre, apellido, fecha_nacimiento, sexo, email, contraseña, encuesta_completada=False):
     query = """
-    INSERT INTO pacientes (dni, nombre, fecha_nacimiento, sexo, contraseña, encuesta_completada)
-    VALUES (%s, %s, %s, %s, %s, %s);
+    INSERT INTO pacientes (dni, nombre, apellido, fecha_nacimiento, sexo, email, contraseña, encuesta_completada)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s);
     """
     conn = connect_to_supabase()
-    params = (dni, nombre, fecha_nacimiento, sexo, password, encuesta_completada)
+    params = (dni, nombre, apellido, fecha_nacimiento, sexo, email, contraseña, encuesta_completada)
     return execute_query(query, params=params, conn=conn, is_select=False)
 
 
@@ -36,9 +245,12 @@ def get_id_paciente_por_dni(dni, conn=None):
         return None
 
 
-def insert_historial(
+"""def insert_historial(
     dni,
     fecha_completado=None,
+    telefono=None,
+    contacto_emergencia=None,
+    tipo_sangre=None,
     peso=None,
     fumador=False,
     alcoholico=False,
@@ -50,6 +262,7 @@ def insert_historial(
     suplementos=None,
     condicion=None,
     medicacion_cronica=None,
+    vacunas=None,
     antecedentes_familiares_enfermedad=None,
     antecedentes_familiares_familiar=None,
     conn=None
@@ -66,15 +279,18 @@ def insert_historial(
     condicion_db = condicion if condicion else "no tiene"
     medicacion_db = medicacion_cronica if condicion else None
 
-    query = """
+    query = 
     INSERT INTO historial_medico
-        (id_paciente, fecha_completado, peso, fumador, alcoholico, dieta, actividad_fisica, estres_alto, colesterol_alto,
-         condicion, medicacion_cronica, antecedentes_familiares_enfermedad, antecedentes_familiares_familiar)
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
-    """
+        (id_paciente, fecha_completado, telefono, contacto_emergencia, tipo_sangre, peso, fumador, alcoholico, dieta, actividad_fisica, estres_alto, colesterol_alto,
+         condicion, medicacion_cronica, alergias, suplementos, vacunas, antecedentes_familiares_enfermedad, antecedentes_familiares_familiar)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
+    
     params = (
         id_paciente,
         fecha_completado,
+        telefono,
+        contacto_emergencia,
+        tipo_sangre,
         peso,
         fumador,
         alcoholico,
@@ -84,13 +300,16 @@ def insert_historial(
         actividad_fisica,
         condicion_db,
         medicacion_db,
+        alergias,
+        suplementos,
+        vacunas,
         antecedentes_familiares_enfermedad,
         antecedentes_familiares_familiar
     )
 
     return execute_query(query, params=params, conn=conn, is_select=False)
 
-
+"""
 
 def update_encuesta_completada(dni, conn=None):
     """
@@ -102,14 +321,15 @@ def update_encuesta_completada(dni, conn=None):
     WHERE dni = %s;
     """
     params = (dni,)
-    return execute_query(query, params=params, conn=conn, is_select=False)
+    return execute_query(query, params=params, conn=conn, is_select=False) 
+
 
 #def get_encuesta_completada(dni, conn=None):
-    query = """
-    SELECT encuesta_completada FROM pacientes WHERE dni = %s;
-    """
-    params = (dni,)
-    return execute_query(query, params=params, conn=conn, is_select=True)
+   # query = """
+   # SELECT encuesta_completada FROM pacientes WHERE dni = %s;
+  #  """
+ #   params = (dni,)
+#    return execute_query(query, params=params, conn=conn, is_select=True) 
 
 
 def get_encuesta_completada(dni, conn=None):
@@ -178,6 +398,64 @@ def obtener_edad(id_paciente):
     except Exception as e:
         print(f"Error en obtener_edad: {e}")
         return None
+    
+def tiene_alergia_por_dni(dni, alergia, conn=None):
+    id_paciente = get_id_paciente_por_dni(dni, conn=conn)
+    if id_paciente is None:
+        return False
+    
+    query = """ 
+    SELECT alergias FROM historial_medico WHERE id_paciente = %s;
+    """
+    result = execute_query(query, params=(id_paciente,), conn=conn, is_select=True)
+    if result is None or result.empty:
+        return False
+    
+    alergias = result.iloc[0]['alergias']
+    if not alergias:
+        return False
+    
+    return alergia.lower() in [a.lower() for a in alergias] # Retorna True si la alergia está en la lista de alergias del paciente
+    
+def tiene_suplemento_por_dni(dni, suplemento, conn=None):
+    id_paciente = get_id_paciente_por_dni(dni, conn=conn)
+    if id_paciente is None:
+        return False
+    
+    query = """
+    SELECT suplementos FROM historial_medico WHERE id_paciente = %s;
+    """ 
+    result = execute_query(query, params=(id_paciente,), conn=conn, is_select=True)
+    if result is None or result.empty:
+        return False
+    
+    suplementos = result.iloc[0]['suplementos']
+    if not suplementos: 
+        return False
+    
+    return suplemento.lower() in [s.lower() for s in suplementos] # Retorna True si el suplemento está en la lista de suplementos del paciente
+    
+def tiene_vacuna_por_dni(dni, vacuna, conn=None):
+    id_paciente = get_id_paciente_por_dni(dni, conn=conn)
+    if id_paciente is None:
+        return False
+    
+    query = """
+    SELECT vacunas FROM historial_medico WHERE id_paciente = %s;
+    """ 
+    result = execute_query(query, params=(id_paciente,), conn=conn, is_select=True)
+    if result is None or result.empty:
+        return False
+    
+    vacunas = result.iloc[0]['vacunas']
+    if not vacunas: 
+        return False
+    
+    return vacuna.lower() in [v.lower() for v in vacunas] # Retorna True si la vacuna está en la lista de vacunas del paciente
+
+
+
+
 
 def tiene_antecedente_enfermedad_por_dni(dni, enfermedad, conn=None):
     # Primero obtenemos el id_paciente a partir del dni
@@ -190,7 +468,8 @@ def tiene_antecedente_enfermedad_por_dni(dni, enfermedad, conn=None):
         SELECT antecedentes_familiares_enfermedad
         FROM historial_medico
         WHERE id_paciente = %s;
-    """
+    """ 
+
     
     result = execute_query(query, params=(id_paciente,), conn=conn, is_select=True)
     if result is None or result.empty:

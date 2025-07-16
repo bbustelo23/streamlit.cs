@@ -218,6 +218,7 @@ else:
                     st.session_state.logged_in = True
                     st.session_state.dni = new_DNI
                     st.session_state.nombre = new_name
+                    st.session_state.apellido = new_lastname
                     st.success("¡Registro exitoso! Bienvenido.")
                     st.rerun()
                 else:

@@ -90,8 +90,7 @@ def get_datos_paciente(dni, conn):
     try:
         main_query = """
             SELECT p.id_paciente, p.nombre, p.apellido, p.dni, p.fecha_nacimiento,
-                   p.tipo_sangre, p.sexo, p.telefono, p.contacto_emergencia, p.email, h.alergias, h.condicion, 
-                   h.suplementos, h.vacunas
+                   p.tipo_sangre, p.sexo, p.telefono, p.email, h.alergias, h.condicion
             FROM pacientes AS p
             LEFT JOIN historial_medico AS h ON p.id_paciente = h.id_paciente
             WHERE p.dni = %s;
@@ -126,30 +125,17 @@ def get_datos_paciente(dni, conn):
         condicion_str = paciente_info.get('condicion', '')
         condiciones_list = [c.strip() for c in condicion_str.split(',')] if condicion_str and condicion_str.strip() else []
 
-        suplementos_str = paciente_info.get('suplementos', '') 
-        suplementos_list = [s.strip() for s in suplementos_str.split(',')] if suplementos_str and suplementos_str.strip() else []
-
-        vacunas_str = paciente_info.get('vacunas', '')
-        vacunas_list = [v.strip() for v in vacunas_str.split(',')] if vacunas_str and vacunas_str.strip() else []
-
-
-
-
-
-
         return {
             "nombre": f"{paciente_info.get('nombre', '')} {paciente_info.get('apellido', '')}",
             "dni": paciente_info.get('dni', ''),
             "edad": calculate_age(str(paciente_info.get('fecha_nacimiento', ''))),
             "telefono": paciente_info.get('telefono', 'No especificado'),
             "email": paciente_info.get('email', 'No especificado'),
-            "contacto_emergencia": paciente_info.get('contacto_emergencia', 'No especificado'),
             "tipo_sangre": paciente_info.get('tipo_sangre', 'No especificado'),
             "alergias": alergias_list,
-            "suplementos": suplementos_list,
-            "vacunas": vacunas_list,
             "medicacion": medicamentos_formateados,
             "condiciones_cronicas": condiciones_list, # NUEVA CLAVE
+            "vacunas": [],
             "estudios": estudios_formateados,
         }
     except Exception as e:
@@ -236,7 +222,7 @@ tipo_informe = st.selectbox(
 )
 
 incluir_alergias = incluir_medicacion = incluir_condiciones = True
-incluir_vacunas = incluir_estudios = incluir_suplementos = incluir_contacto_emergencia = True
+incluir_vacunas = incluir_estudios = True
 
 if tipo_informe == "personalizado":
     st.write("**2. Elige las secciones a incluir:**")
@@ -248,9 +234,6 @@ if tipo_informe == "personalizado":
     with col_check2:
         incluir_vacunas = st.checkbox("💉 Vacunas", value=True)
         incluir_estudios = st.checkbox("🔬 Estudios", value=True)
-        incluir_suplementos = st.checkbox("💊 Suplementos", value=True)
-        incluir_contacto_emergencia = st.checkbox("📞 Contacto de Emergencia", value=True)
-
 
 if tipo_informe:
     st.write("**3. Descarga tu informe:**")
@@ -271,8 +254,6 @@ if tipo_informe:
                 'condiciones_cronicas': incluir_condiciones, # NUEVO EN CONFIG
                 'vacunas': incluir_vacunas,
                 'estudios': incluir_estudios,
-                'suplementos': incluir_suplementos,
-                'contacto_emergencia': incluir_contacto_emergencia,
             }
             html_informe = generar_html_completo(datos_paciente, config_personalizado)
         
