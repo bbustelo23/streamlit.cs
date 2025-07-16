@@ -207,12 +207,15 @@ else:
             confirm_password = st.text_input("Confirmar contraseña", type="password", key="reg_confirmpass")
             fecha_nacimiento = st.date_input("Fecha de nacimiento", min_value=date(1920, 1, 1), max_value=datetime.today().date(), key="reg_birth")
             sexo = st.selectbox("Sexo", ["Masculino", "Femenino", "Prefiero no decirlo"], key="reg_sex")
+            tipo_sangre = st.radio("¿Qué tipo de sangre tenés?", ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"], index=1)
+            telefono = st.text_input("¿Cuál es tu número de teléfono?") 
+            contacto_emergencia = st.text_input("¿Cuál es el número de teléfono de tu contacto de emergencia?")
             
             if st.form_submit_button("Registrarme"):
                 if new_password == confirm_password and all([new_name, new_lastname, new_DNI, main_email]):
                     insert_paciente(
                         dni=int(new_DNI), nombre=new_name, apellido=new_lastname, email=main_email, 
-                        fecha_nacimiento=fecha_nacimiento, sexo=sexo, contraseña=new_password, 
+                        fecha_nacimiento=fecha_nacimiento, sexo=sexo, contraseña=new_password, tipo_sangre=tipo_sangre, telefono=telefono, contacto_emergencia=contacto_emergencia,
                         encuesta_completada=False
                     )
                     st.session_state.logged_in = True

@@ -18,10 +18,6 @@ if not encuesta_completada.empty and encuesta_completada.iloc[0]["encuesta_compl
     st.warning("Ya completaste la encuesta.")
     st.stop()
 
-sangre = st.radio("¿Qué tipo de sangre tenés?", ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"], index=1)
-telefono = st.text_input("¿Cuál es tu número de teléfono?") 
-emergencia = st.text_input("¿Cuál es el número de teléfono de tu contacto de emergencia?")
-
 fumador = st.radio("¿Fumás?", ["Sí", "No"], index=1)
 alcoholico = st.radio("¿Consumís alcohol?", ["Sí", "No"], index=1)
 peso = st.number_input("¿Cuál es tu peso actual (kg)?", min_value=0.0, step=0.1) 
@@ -58,62 +54,36 @@ if tiene_alergias == "Sí":
             alergias.append(alergia_input.strip())
 
 
-suplementos_declarados = []
+
 
 toma_suplementos = st.radio("¿Tomás suplementos?", ["Sí", "No"], index=1, key="radio_suplementos")
-
+suplementos_declarados = []
 if toma_suplementos == "Sí":
-    st.markdown("### Detalles de suplementos")
+    st.markdown("### Detalles de suplementos") 
 
-    # Usamos un formulario para agrupar las entradas de los suplementos
-    with st.form("form_suplementos", clear_on_submit=False):
-        # Preguntamos cuántos suplementos va a declarar
-        cantidad_suplementos = st.number_input(
-            "¿Cuántos suplementos querés declarar?",
-            min_value=1,
-            step=1,
-            key="num_suplementos"
-        )
+    cantidad_sup = st.number_input("¿Cuántos suplementos querés declarar?", min_value=1, step=1)
 
-        # Creamos los campos de texto para cada suplemento
-        suplemento_inputs = []
-        for i in range(cantidad_suplementos):
-            suplemento_nombre = st.text_input(
-                f"Nombre del suplemento #{i+1}",
-                key=f"suplemento_{i}"
-            )
-            suplemento_inputs.append(suplemento_nombre)
+    for i in range(cantidad_sup):
+        sup_input = st.text_input(f"Suplemento #{i+1}", key=f"sup_{i}")
+        
+        if sup_input.strip():
+            suplementos_declarados.append(sup_input.strip())
 
-        # Botón para guardar los suplementos ingresados
-        submitted_suplementos = st.form_submit_button("Guardar suplementos")
-
-        if submitted_suplementos:
-            # Procesamos la lista para limpiarla y guardarla
-            suplementos_declarados = [s.strip() for s in suplemento_inputs if s.strip()]
-            st.success("Suplementos registrados correctamente.")
-            # Opcional: Muestra los suplementos guardados
-            st.write("Suplementos guardados:")
 
 
 tiene_vacuna = st.radio("¿Tenés vacunas puestas?", ["Sí", "No"], index=1)
 vacunas = []
-
 if tiene_vacuna == "Sí": 
-    st.markdown("### Detalles de vacunas")
+    st.markdown("### Detalles de vacunas") 
 
-    with st.form("form_vacunas", clear_on_submit=False):
-        cantidad_vacunas = st.number_input("¿Cuántas vacunas querés declarar?", min_value=1, step=1, key="num_vacunas")
+    cantidad_vac = st.number_input("¿Cuántas vacunas querés declarar?", min_value=1, step=1)
 
-        vacuna_inputs = []
-        for i in range(cantidad_vacunas):
-            vacuna_nombre = st.text_input(f"Nombre de la vacuna #{i+1}", key=f"vacuna_{i}")
-            vacuna_inputs.append(vacuna_nombre)
+    for i in range(cantidad_vac):
+        vacuna_input = st.text_input(f"Vacuna #{i+1}", key=f"vacuna_{i}")
+        
+        if vacuna_input.strip():
+            vacunas.append(vacuna_input.strip())
 
-        submitted_vacunas = st.form_submit_button("Guardar vacunas")
-
-        if submitted_vacunas:
-            vacunas = [v.strip() for v in vacuna_inputs if v.strip()]
-            st.success("Vacunas registradas correctamente.")
 
 
 antecedentes_familiares = st.radio("¿Tenés antecedentes familiares de alguna enfermedad?", ["Sí", "No"], index=1)

@@ -235,7 +235,7 @@ tipo_informe = st.selectbox(
 )
 
 incluir_alergias = incluir_medicacion = incluir_condiciones = True
-incluir_vacunas = incluir_estudios = incluir_suplementos = incluir_contacto_emergencia = True
+incluir_vacunas = incluir_estudios  = True
 
 if tipo_informe == "personalizado":
     st.write("**2. Elige las secciones a incluir:**")
@@ -243,12 +243,11 @@ if tipo_informe == "personalizado":
     with col_check1:
         incluir_alergias = st.checkbox("🚨 Alergias", value=True)
         incluir_medicacion = st.checkbox("💊 Medicación", value=True)
-        incluir_condiciones = st.checkbox("🩺 Condiciones Crónicas", value=True) # NUEVO CHECKBOX
+        
     with col_check2:
-        incluir_vacunas = st.checkbox("💉 Vacunas", value=True)
+        incluir_condiciones = st.checkbox("🩺 Condiciones Crónicas", value=True) # NUEVO CHECKBOX
         incluir_estudios = st.checkbox("🔬 Estudios", value=True)
-        incluir_suplementos = st.checkbox("💊 Suplementos", value=True)
-        incluir_contacto_emergencia = st.checkbox("📞 Contacto de Emergencia", value=True)
+
 
 
 if tipo_informe:
@@ -269,9 +268,8 @@ if tipo_informe:
                 'alergias': incluir_alergias, 'medicacion': incluir_medicacion,
                 'condiciones_cronicas': incluir_condiciones, # NUEVO EN CONFIG
                 'vacunas': incluir_vacunas,
-                'estudios': incluir_estudios,
-                'suplementos': incluir_suplementos,
-                'contacto_emergencia': incluir_contacto_emergencia,
+                'estudios': incluir_estudios
+
             }
             html_informe = generar_html_completo(datos_paciente, config_personalizado)
         
