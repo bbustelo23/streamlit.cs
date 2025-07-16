@@ -58,9 +58,41 @@ if tiene_alergias == "Sí":
             alergias.append(alergia_input.strip())
 
 
-suplementos = st.radio("¿Tomás suplementos?", ["Sí", "No"], index=1)
-if suplementos == "Sí":
-    suplemento = st.text_input("¿Qué suplemento?")
+suplementos_declarados = []
+
+toma_suplementos = st.radio("¿Tomás suplementos?", ["Sí", "No"], index=1, key="radio_suplementos")
+
+if toma_suplementos == "Sí":
+    st.markdown("### Detalles de suplementos")
+
+    # Usamos un formulario para agrupar las entradas de los suplementos
+    with st.form("form_suplementos", clear_on_submit=False):
+        # Preguntamos cuántos suplementos va a declarar
+        cantidad_suplementos = st.number_input(
+            "¿Cuántos suplementos querés declarar?",
+            min_value=1,
+            step=1,
+            key="num_suplementos"
+        )
+
+        # Creamos los campos de texto para cada suplemento
+        suplemento_inputs = []
+        for i in range(cantidad_suplementos):
+            suplemento_nombre = st.text_input(
+                f"Nombre del suplemento #{i+1}",
+                key=f"suplemento_{i}"
+            )
+            suplemento_inputs.append(suplemento_nombre)
+
+        # Botón para guardar los suplementos ingresados
+        submitted_suplementos = st.form_submit_button("Guardar suplementos")
+
+        if submitted_suplementos:
+            # Procesamos la lista para limpiarla y guardarla
+            suplementos_declarados = [s.strip() for s in suplemento_inputs if s.strip()]
+            st.success("Suplementos registrados correctamente.")
+            # Opcional: Muestra los suplementos guardados
+            st.write("Suplementos guardados:")
 
 
 tiene_vacuna = st.radio("¿Tenés vacunas puestas?", ["Sí", "No"], index=1)
@@ -127,7 +159,7 @@ if submit:
             colesterol_alto=(colesterol == "Si"),
             actividad_fisica=actividad_fisica,  # Asegúrate de que esta variable esté definida
             alergias=alergias if tiene_alergias == "Sí" else None,
-            suplementos=suplemento if suplementos == "Sí" else None,
+            suplementos=suplementos_declarados if toma_suplementos == "Sí" else None,
             condicion=condicion if tiene_condicion == "Sí" else None,
             medicacion_cronica=medicacion if tiene_condicion == "Sí" and toma_medicacion == "Sí" else None,
             vacunas=vacunas if tiene_vacuna == "Sí" else None,
