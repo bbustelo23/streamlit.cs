@@ -79,9 +79,6 @@ def get_id_paciente_por_dni(dni, conn=None):
 def insert_historial(
     dni,
     fecha_completado=None,
-    telefono=None,
-    contacto_emergencia=None,
-    tipo_sangre=None,
     peso=None,
     fumador=False,
     alcoholico=False,
@@ -125,9 +122,6 @@ def insert_historial(
         st.write(f"✅ Paciente encontrado con ID: {id_paciente}")
 
         # Limpiar y validar los datos antes de insertar
-        telefono = telefono.strip() if telefono and telefono.strip() else "No especificado"
-        contacto_emergencia = contacto_emergencia.strip() if contacto_emergencia and contacto_emergencia.strip() else "No especificado"
-        tipo_sangre = tipo_sangre.strip() if tipo_sangre and tipo_sangre.strip() else "No especificado"
         actividad_fisica = actividad_fisica.strip() if actividad_fisica and actividad_fisica.strip() else "No especificado"
         
         # Validar peso - usar None si es 0 o inválido
@@ -143,9 +137,6 @@ def insert_historial(
         valores_debug = {
             'id_paciente': id_paciente,
             'fecha_completado': fecha_completado,
-            'telefono': telefono,
-            'contacto_emergencia': contacto_emergencia,
-            'tipo_sangre': tipo_sangre,
             'peso': peso,
             'fumador': fumador,
             'alcoholico': alcoholico,
@@ -167,17 +158,14 @@ def insert_historial(
 
         query = """
         INSERT INTO historial_medico
-            (id_paciente, fecha_completado, telefono, contacto_emergencia, tipo_sangre, peso, fumador, alcoholico, dieta, estres_alto, colesterol_alto,
+            (id_paciente, fecha_completado, peso, fumador, alcoholico, dieta, estres_alto, colesterol_alto,
              actividad_fisica, condicion, medicacion_cronica, alergias, suplementos, vacunas, antecedentes_familiares_enfermedad, antecedentes_familiares_familiar)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
         """
 
         params = (
             id_paciente,
             fecha_completado,
-            telefono,
-            contacto_emergencia,
-            tipo_sangre,
             peso,
             fumador,
             alcoholico,
@@ -220,13 +208,13 @@ def get_paciente(dni):
     query = "SELECT * FROM pacientes WHERE dni = %s"
     return execute_query(query, (dni,), is_select=True)
 
-def insert_paciente(dni, nombre, apellido, fecha_nacimiento, sexo, email, contraseña, encuesta_completada=False):
+def insert_paciente(dni, nombre, apellido, fecha_nacimiento, sexo, email, contraseña, telefono, contacto_emergencia, tipo_sangre, encuesta_completada=False):
     query = """
-    INSERT INTO pacientes (dni, nombre, apellido, fecha_nacimiento, sexo, email, contraseña, encuesta_completada)
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s);
+    INSERT INTO pacientes (dni, nombre, apellido, fecha_nacimiento, sexo, email, contraseña,  telefono, contacto_emergencia, tipo_sangre, encuesta_completada)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
     """
     conn = connect_to_supabase()
-    params = (dni, nombre, apellido, fecha_nacimiento, sexo, email, contraseña, encuesta_completada)
+    params = (dni, nombre, apellido, fecha_nacimiento, sexo, email, contraseña,  telefono, contacto_emergencia, tipo_sangre, encuesta_completada)
     return execute_query(query, params=params, conn=conn, is_select=False)
 
 
@@ -248,9 +236,7 @@ def get_id_paciente_por_dni(dni, conn=None):
 """def insert_historial(
     dni,
     fecha_completado=None,
-    telefono=None,
-    contacto_emergencia=None,
-    tipo_sangre=None,
+
     peso=None,
     fumador=False,
     alcoholico=False,
@@ -279,11 +265,7 @@ def get_id_paciente_por_dni(dni, conn=None):
     condicion_db = condicion if condicion else "no tiene"
     medicacion_db = medicacion_cronica if condicion else None
 
-    query = 
-    INSERT INTO historial_medico
-        (id_paciente, fecha_completado, telefono, contacto_emergencia, tipo_sangre, peso, fumador, alcoholico, dieta, actividad_fisica, estres_alto, colesterol_alto,
-         condicion, medicacion_cronica, alergias, suplementos, vacunas, antecedentes_familiares_enfermedad, antecedentes_familiares_familiar)
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
+    
     
     params = (
         id_paciente,
@@ -324,12 +306,6 @@ def update_encuesta_completada(dni, conn=None):
     return execute_query(query, params=params, conn=conn, is_select=False) 
 
 
-#def get_encuesta_completada(dni, conn=None):
-   # query = """
-   # SELECT encuesta_completada FROM pacientes WHERE dni = %s;
-  #  """
- #   params = (dni,)
-#    return execute_query(query, params=params, conn=conn, is_select=True) 
 
 
 def get_encuesta_completada(dni, conn=None):

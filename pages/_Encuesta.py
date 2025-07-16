@@ -119,9 +119,6 @@ if submit:
         success = insert_historial(
             dni=st.session_state.dni,
             fecha_completado=date.today(),
-            telefono=telefono,
-            contacto_emergencia=emergencia,
-            tipo_sangre=sangre,
             peso=peso,
             fumador=(fumador == "Sí"),
             alcoholico=(alcoholico == "Sí"),
