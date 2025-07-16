@@ -95,7 +95,7 @@ with st.container():
 
 
 # --- Pestañas de Navegación (REORDENADAS) ---
-tab1, tab2 = st.tabs(["Resumen de Encuesta 📊", "Eventos Clínicos 🩺"])
+tab1, tab2, tab3 = st.tabs(["Resumen de Encuesta 📊", "Eventos Clínicos 🩺", "Estudios Médicos 🔬"])
 
 # --- Pestaña 1: Resumen de Encuesta ---
 with tab1:
@@ -200,36 +200,96 @@ with tab2:
                     st.rerun()
 
 # --- Pestaña 3: Estudios Médicos ---
-#with tab3:
-#    st.subheader("Historial de Estudios")
-#    estudios = get_estudios_medicos_recientes(dni, conn=conn)
-#    if estudios is not None and not estudios.empty:
-#        for idx, estudio in estudios.iterrows():
-#            with st.container():
-#                st.markdown(f"""
-#                    <div class="card">
-#                        <div class="card-title">📋 {estudio.get('tipo', 'Estudio')} - {estudio.get('fecha', 'N/D')}</div>
-#                        <div class="card-content">
-#                            <p><strong>Zona del Cuerpo:</strong> {estudio.get('zona', 'N/D')}</p>
-#                            <p><strong>Razón:</strong> {estudio.get('descripcion', 'N/D')}</p>
-#                        </div>
-#                    </div>
-#                """, unsafe_allow_html=True)
-#                if estudio.get('imagen_base64'):
-#                    with st.expander("Ver Imagen del Estudio"):
-#                        try:
-#                            image_data = base64.b64decode(estudio['imagen_base64'])
-#                            st.image(image_data, caption=f"Imagen: {estudio.get('tipo')}", use_column_width=True)
-#                            st.download_button("⬇️ Descargar Imagen", image_data, f"estudio_{estudio.get('tipo')}.jpg", "image/jpeg")
-#                        except Exception as e:
-#                            st.error(f"Error al cargar la imagen: {str(e)}")
-#    else:
-#        st.info("🔬 **Sin Estudios Registrados:** Usa el formulario para agregar tu primer estudio.")
-    
-#    with st.expander("🔬 Agregar Nuevo Estudio Médico"):
-#        with st.form("nuevo_estudio_medico", clear_on_submit=True, border=False):
-#            # ... (código del formulario sin cambios)
-#            pass
+with tab3:
+    st.subheader("Historial de Estudios")
+    estudios = get_estudios_medicos_recientes(dni, conn=conn)
 
-st.divider()
-st.info("💡 **Tip:** Mantén siempre actualizado tu historial médico para un mejor seguimiento de tu salud.")
+    # SECCIÓN PARA MOSTRAR ESTUDIOS EXISTENTES
+    if estudios is not None and not estudios.empty:
+        for idx, estudio in estudios.iterrows():
+            with st.container():
+                st.markdown(f"""
+                    <div class="card">
+                        <div class="card-title">📋 {estudio.get('tipo', 'Estudio')} - {estudio.get('fecha', 'N/D')}</div>
+                        <div class="card-content">
+                            <p><strong>Zona del Cuerpo:</strong> {estudio.get('zona', 'N/D')}</p>
+                            <p><strong>Razón:</strong> {estudio.get('descripcion', 'N/D')}</p>
+                        </div>
+                    </div>
+                """, unsafe_allow_html=True)
+                
+    else:
+        st.info("🔬 Sin Estudios Registrados: Usa el formulario para agregar tu primer estudio.")
+
+    # EXPANDER CON EL FORMULARIO PARA AGREGAR UN NUEVO ESTUDIO
+    with st.expander("🔬 Agregar Nuevo Estudio Médico"):
+        
+        with st.form("nuevo_estudio_medico_form", clear_on_submit=True, border=False):
+            st.header("🔬 Agregar Estudio Médico")
+            st.caption("Completa los datos para registrar un nuevo estudio.")
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+                tipo_estudio = st.selectbox(
+                    "Tipo de Estudio (*)",
+                    ["", "Radiografía", "Tomografía", "Resonancia Magnética", "Ecografía", 
+                     "Análisis de Sangre", "Análisis de Orina", "Electrocardiograma", 
+                     "Mamografía", "Colonoscopía", "Endoscopía", "Otro"]
+                )
+                if tipo_estudio == "Otro":
+                    tipo_estudio_personalizado = st.text_input("Especificar tipo de estudio:")
+                    if tipo_estudio_personalizado:
+                        tipo_estudio = tipo_estudio_personalizado
+
+            with col2:
+                fecha_estudio = st.date_input(
+                    "Fecha del Estudio (*)",
+                    value=date.today(),
+                    max_value=date.today()
+                )
+
+            zona = st.text_input(
+                "Zona del Cuerpo (*)",
+                placeholder="Ej: Rodilla derecha, Tórax, Abdomen..."
+            )
+            razon = st.text_area(
+                "Razón del Estudio (*)",
+                placeholder="Ej: Control de rutina, dolor persistente..."
+            )
+            observaciones = st.text_area(
+                "Observaciones o Resultados",
+                placeholder="Ej: Valores normales, se observa fractura..."
+            )
+
+            # --- ELIMINADO: Carga de archivo ---
+            # Se ha quitado el st.file_uploader de esta sección.
+
+            # Botón de envío del formulario
+            submitted_estudio = st.form_submit_button("🔬 Guardar Estudio Médico")
+
+            if submitted_estudio:
+                if not tipo_estudio or not zona.strip() or not razon.strip():
+                    st.error("❌ Los campos 'Tipo de Estudio', 'Zona del Cuerpo' y 'Razón del Estudio' son obligatorios.")
+                else:
+                    with st.spinner("Guardando estudio médico..."):
+                        
+                        # --- ELIMINADO: Procesamiento de imagen ---
+                        # Se quitó la lógica para manejar el archivo subido.
+                        
+                        # Llamada a la función para insertar en la BD (sin el parámetro de la imagen)
+                        success = insertar_estudio_medico(
+                            dni=dni,
+                            tipo_estudio=tipo_estudio,
+                            fecha_estudio=fecha_estudio,
+                            zona=zona,
+                            razon=razon,
+                            observaciones=observaciones,
+                            conn=conn
+                        )
+                        
+                        if success:
+                            st.success("✅ ¡Estudio médico guardado exitosamente!")
+                            st.rerun()
+                        else:
+                            st.error("❌ Hubo un error al guardar el estudio médico.")

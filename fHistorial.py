@@ -134,52 +134,44 @@ def get_estudios_medicos_recientes(dni, conn=None):
         print(f"Error al obtener estudios médicos: {str(e)}")
         return None
 
-def insertar_estudio_medico(dni, tipo_estudio, fecha_estudio, zona, razon, observaciones=None, imagen_base64=None, conn=None):
-    """Inserta un nuevo estudio médico usando la tabla Estudios y guarda una imagen si es provista."""
+def insertar_estudio_medico(dni, tipo_estudio, fecha_estudio, zona, razon, observaciones=None, conn=None):
+    """Inserta un nuevo estudio médico y devuelve True si tiene éxito."""
     try:
-        # Obtener ID del paciente
         id_paciente = get_id_paciente_por_dni(dni, conn=conn)
         if not id_paciente:
-            st.error("No se pudo encontrar el ID del paciente")
+            st.error("No se pudo encontrar el ID del paciente para el estudio.")
             return False
         id_paciente = int(id_paciente)
 
-        # Combinar razón y observaciones en descripción
         descripcion_completa = razon.strip()
         if observaciones and observaciones.strip():
             descripcion_completa += f" | Observaciones: {observaciones.strip()}"
 
-        # Insertar estudio médico y devolver el id_estudio generado
         query = """
         INSERT INTO estudios (id_paciente, fecha, tipo, zona, descripcion)
         VALUES (%s, %s, %s, %s, %s)
         RETURNING id_estudio
         """
-        params = (
-            id_paciente,
-            fecha_estudio,
-            tipo_estudio.strip(),
-            zona.strip(),
-            descripcion_completa
-        )
+        params = (id_paciente, fecha_estudio, tipo_estudio.strip(), zona.strip(), descripcion_completa)
 
-        result = execute_query(query, params=params, conn=conn, is_select=True)
+        # AVISO IMPORTANTE:
+        # La siguiente línea asume que tu función `execute_query` realiza un `conn.commit()`
+        # para las operaciones que no son de selección.
+        # Estás usando `is_select=True` porque esperas un valor de retorno, pero un INSERT
+        # es una operación de escritura y NECESITA un commit.
+        result = execute_query(query, params=params, conn=conn, is_select=False) # Cambiado a is_select=False
 
-        if result is not None and not result.empty:
-            id_estudio = int(result.iloc[0]['id_estudio'])
-            print("Estudio insertado correctamente.")
-
-            # Si hay imagen, guardarla en tabla separada
-            if imagen_base64:
-                guardar_imagen_estudio(id_estudio, id_paciente, imagen_base64, conn)
-
-            return True
+        # La lógica de `execute_query` debe manejar el retorno de datos incluso con is_select=False
+        if result:
+            print("✅ Inserción confirmada en la base de datos.")
+            return True # <--- ¡LA SOLUCIÓN PRINCIPAL!
         else:
-            st.error("No se pudo insertar el estudio.")
+            # Este error ahora significa que el commit o la ejecución fallaron.
+            st.error("La base de datos no confirmó el guardado del estudio.")
             return False
 
     except Exception as e:
-        st.error(f"Error al insertar estudio médico: {str(e)}")
+        st.error(f"Error crítico al insertar estudio médico: {str(e)}")
         print(f"Error detallado al insertar estudio: {str(e)}")
         return False
 
@@ -385,7 +377,7 @@ def actualizar_historial_medico(dni, datos_actualizados, conn=None):
         campos_validos = {
             'sangre',
             'telefono', 
-            'emergencia',
+            'contacto_emergencia',
             'peso',
             'fumador',
             'alcoholico',
