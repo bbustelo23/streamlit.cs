@@ -85,7 +85,7 @@ def calculate_age(born_date_str):
 def get_datos_paciente(dni, conn):
     """
     Función actualizada para obtener y estructurar los datos del paciente.
-    Ahora devuelve una clave 'condiciones_cronicas' explícita.
+    Ahora maneja correctamente los campos que pueden ser listas o strings.
     """
     try:
         main_query = """
@@ -119,23 +119,21 @@ def get_datos_paciente(dni, conn):
                 fecha_estudio = estudio.get('fecha').strftime('%d/%m/%Y') if estudio.get('fecha') else 'Sin fecha'
                 estudios_formateados.append(f"({fecha_estudio}) {estudio.get('tipo', 'Estudio')}: {estudio.get('descripcion', 'Sin descripción.')}")
 
-        alergias_str = paciente_info.get('alergias', '')
-        alergias_list = [a.strip() for a in alergias_str.split(',')] if alergias_str and alergias_str.strip() else []
-        
-        # CAMBIO: Se obtiene la condición crónica de forma explícita.
-        condicion_str = paciente_info.get('condicion', '')
-        condiciones_list = [c.strip() for c in condicion_str.split(',')] if condicion_str and condicion_str.strip() else []
+        # --- INICIO DE LA CORRECCIÓN ---
+        # Helper function to process fields that can be a list or a comma-separated string
+        def process_array_field(data):
+            if isinstance(data, list):
+                return data # It's already a list, just return it
+            if isinstance(data, str) and data.strip():
+                # It's a string, process it into a list
+                return [item.strip() for item in data.split(',') if item.strip()]
+            return [] # Return an empty list for None or other types
 
-        suplementos_str = paciente_info.get('suplementos', '') 
-        suplementos_list = [s.strip() for s in suplementos_str.split(',')] if suplementos_str and suplementos_str.strip() else []
-
-        vacunas_str = paciente_info.get('vacunas', '')
-        vacunas_list = [v.strip() for v in vacunas_str.split(',')] if vacunas_str and vacunas_str.strip() else []
-
-
-
-
-
+        alergias_list = process_array_field(paciente_info.get('alergias'))
+        condiciones_list = process_array_field(paciente_info.get('condicion'))
+        suplementos_list = process_array_field(paciente_info.get('suplementos'))
+        vacunas_list = process_array_field(paciente_info.get('vacunas'))
+        # --- FIN DE LA CORRECCIÓN ---
 
         return {
             "nombre": f"{paciente_info.get('nombre', '')} {paciente_info.get('apellido', '')}",
@@ -149,11 +147,12 @@ def get_datos_paciente(dni, conn):
             "suplementos": suplementos_list,
             "vacunas": vacunas_list,
             "medicacion": medicamentos_formateados,
-            "condiciones_cronicas": condiciones_list, # NUEVA CLAVE
+            "condiciones_cronicas": condiciones_list,
             "estudios": estudios_formateados,
         }
     except Exception as e:
-        st.error(f"Ocurrió un error al consultar la base de datos: {e}")
+        # Avoid showing a broad exception, specify the error for debugging.
+        st.error(f"Ocurrió un error al procesar los datos del paciente: {e}")
         return None
 
 # --- CSS Y FUNCIONES DE HTML PARA INFORMES (ACTUALIZADAS) ---
@@ -296,4 +295,5 @@ with st.expander("🤔 ¿Cómo funciona?"):
     3.  **Descarga:** El botón de descarga aparecerá una vez que hayas seleccionado un tipo de informe.
     """)
 
-st.markdown('</div>', unsafe_allow_html=True) # Cierre del app-container
+st.markdown('</div>', unsafe_allow_html=True) 
+# Cierre del app-container

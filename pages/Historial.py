@@ -132,6 +132,11 @@ with tab1:
 
         # --- Formulario de Edición ---
         with st.expander("✏️ Editar Datos de Encuesta"):
+            # PREPARAR DATOS PARA MOSTRAR: Convierte las listas de la BD a texto
+            vacunas_str = ", ".join(datos.get('vacunas', [])) if datos.get('vacunas') else ""
+            alergias_str = ", ".join(datos.get('alergias', [])) if datos.get('alergias') else ""
+            suplementos_str = ", ".join(datos.get('suplementos', [])) if datos.get('suplementos') else ""
+
             with st.form("edit_survey_form"):
                 st.subheader("Editando Información")
                 peso_edit = st.number_input("Peso (kg)", value=float(datos.get('peso', 0.0)))
@@ -139,22 +144,31 @@ with tab1:
                 alcoholico_edit = st.checkbox("Consume alcohol regularmente", value=bool(datos.get('alcoholico', False)))
                 condicion_edit = st.text_input("Condición crónica", value=datos.get('condicion', ''))
                 medicacion_cronica_edit = st.text_input("Medicación crónica", value=datos.get('medicacion_cronica', ''))
-                vacunas_edit= st.text_input("Vacunas", value=datos.get('vacunas', ''))
-                alergias_edit= st.text_input("Alergias", value=datos.get('alergias', ''))
                 
-                suplementos_edit= st.text_input("Suplementos", value=datos.get('suplementos', ''))
+                # CAMPOS CORREGIDOS: Se muestra el texto y se pide separar con comas
+                vacunas_edit = st.text_input("Vacunas (separadas por coma)", value=vacunas_str)
+                alergias_edit = st.text_input("Alergias (separadas por coma)", value=alergias_str)
+                suplementos_edit = st.text_input("Suplementos (separados por coma)", value=suplementos_str)
                 
                 st.write("Antecedentes Familiares")
                 familiar_edit = st.text_input("Familiar", value=datos.get('antecedentes_familiares_familiar', ''))
                 enfermedad_familiar_edit = st.text_input("Diagnóstico", value=datos.get('antecedentes_familiares_enfermedad', ''))
 
                 if st.form_submit_button("💾 Guardar Cambios"):
+                    # PROCESAR DATOS ANTES DE GUARDAR: Convierte el texto de vuelta a una lista
+                    lista_vacunas = [v.strip() for v in vacunas_edit.split(',') if v.strip()]
+                    lista_alergias = [a.strip() for a in alergias_edit.split(',') if a.strip()]
+                    lista_suplementos = [s.strip() for s in suplementos_edit.split(',') if s.strip()]
+
                     datos_actualizados = {
                         "peso": peso_edit, "fumador": fumador_edit, "alcoholico": alcoholico_edit,
                         "condicion": condicion_edit, "medicacion_cronica": medicacion_cronica_edit,
                         "antecedentes_familiares_familiar": familiar_edit,
-                        "antecedentes_familiares_enfermedad": enfermedad_familiar_edit, "vacunas": vacunas_edit,
-                        "alergias":alergias_edit, "suplementos": suplementos_edit
+                        "antecedentes_familiares_enfermedad": enfermedad_familiar_edit,
+                        # Se guardan las listas procesadas
+                        "vacunas": lista_vacunas,
+                        "alergias": lista_alergias,
+                        "suplementos": lista_suplementos
                     }
                     success = actualizar_historial_medico(dni, datos_actualizados, conn)
                     if success:
@@ -164,8 +178,6 @@ with tab1:
                         st.error("❌ Hubo un error al actualizar los datos.")
     else:
         st.warning("📋 **Encuesta Pendiente:** Completa la encuesta médica para ver tu información aquí.")
-
-
 
 
 
