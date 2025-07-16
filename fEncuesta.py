@@ -208,7 +208,7 @@ def get_paciente(dni):
     query = "SELECT * FROM pacientes WHERE dni = %s"
     return execute_query(query, (dni,), is_select=True)
 
-def insert_paciente(dni, nombre, apellido, fecha_nacimiento, sexo, email, contraseña, telefono, contacto_emergencia, tipo_sangre, encuesta_completada=False):
+def insert_paciente(dni, nombre, apellido, fecha_nacimiento, sexo, email, contraseña, telefono = None, contacto_emergencia = None, tipo_sangre = None, encuesta_completada=False):
     query = """
     INSERT INTO pacientes (dni, nombre, apellido, fecha_nacimiento, sexo, email, contraseña,  telefono, contacto_emergencia, tipo_sangre, encuesta_completada)
     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
