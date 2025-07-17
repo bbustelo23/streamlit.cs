@@ -2,7 +2,7 @@ import streamlit as st
 import calendar
 import pandas as pd
 from datetime import datetime, timedelta, date, time
-
+from functions import connect_to_supabase
 # Se asume que estas funciones existen y funcionan correctamente en fCalendario.py
 from fCalendario import (
     obtener_todos_los_medicos, 
@@ -140,7 +140,7 @@ with col_main:
         if st.button("← Mes Anterior", use_container_width=True):
             st.session_state.current_date = (st.session_state.current_date.replace(day=1) - timedelta(days=1)).replace(day=1)
     with nav_col3:
-        if st.button("Mes bunda →", use_container_width=True):
+        if st.button("Mes siguiente →", use_container_width=True):
             st.session_state.current_date = (st.session_state.current_date.replace(day=28) + timedelta(days=4)).replace(day=1)
     
     current_date = st.session_state.current_date
