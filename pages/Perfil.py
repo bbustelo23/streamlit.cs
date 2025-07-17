@@ -120,20 +120,31 @@ def get_datos_paciente(dni, conn):
                 estudios_formateados.append(f"({fecha_estudio}) {estudio.get('tipo', 'Estudio')}: {estudio.get('descripcion', 'Sin descripción.')}")
 
         # --- INICIO DE LA CORRECCIÓN ---
-        # Helper function to process fields that can be a list or a comma-separated string
+        # Función de ayuda para procesar campos que pueden ser listas o texto.
         def process_array_field(data):
+            # Si ya es una lista, no hacemos nada.
             if isinstance(data, list):
-                return data # It's already a list, just return it
+                return data
+            
+            # Si es texto, lo procesamos.
             if isinstance(data, str) and data.strip():
-                # It's a string, process it into a list
-                return [item.strip() for item in data.split(',') if item.strip()]
-            return [] # Return an empty list for None or other types
+                # Caso 1: Formato de array de la base de datos, ej: "{mani,polen}"
+                if data.startswith('{') and data.endswith('}'):
+                    # Quita las llaves y separa por comas.
+                    content = data[1:-1]
+                    return [item.strip() for item in content.split(',') if item.strip()]
+                # Caso 2: Texto simple separado por comas, ej: "mani, polen"
+                else:
+                    return [item.strip() for item in data.split(',') if item.strip()]
+            
+            # Si no hay datos, devuelve una lista vacía.
+            return []
+        # --- FIN DE LA CORRECCIÓN ---
 
         alergias_list = process_array_field(paciente_info.get('alergias'))
         condiciones_list = process_array_field(paciente_info.get('condicion'))
         suplementos_list = process_array_field(paciente_info.get('suplementos'))
         vacunas_list = process_array_field(paciente_info.get('vacunas'))
-        # --- FIN DE LA CORRECCIÓN ---
 
         return {
             "nombre": f"{paciente_info.get('nombre', '')} {paciente_info.get('apellido', '')}",
@@ -151,7 +162,6 @@ def get_datos_paciente(dni, conn):
             "estudios": estudios_formateados,
         }
     except Exception as e:
-        # Avoid showing a broad exception, specify the error for debugging.
         st.error(f"Ocurrió un error al procesar los datos del paciente: {e}")
         return None
 
@@ -243,6 +253,7 @@ if tipo_informe == "personalizado":
     with col_check1:
         incluir_alergias = st.checkbox("🚨 Alergias", value=True)
         incluir_medicacion = st.checkbox("💊 Medicación", value=True)
+        incluir_vacunas = st.checkbox("Vacunas", value=True)
         
     with col_check2:
         incluir_condiciones = st.checkbox("🩺 Condiciones Crónicas", value=True) # NUEVO CHECKBOX
