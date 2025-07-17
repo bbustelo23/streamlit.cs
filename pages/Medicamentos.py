@@ -44,7 +44,13 @@ dni = st.session_state.get("dni")
 if not dni:
     st.warning("Por favor, inicie sesión para ver sus medicamentos.")
     st.stop()
-
+    
+encuesta_completada = get_encuesta_completada(dni, conn=conn)
+if not encuesta_completada.empty and not encuesta_completada.iloc[0]["encuesta_completada"]:
+    st.warning("Antes de continuar, necesitas completar tu encuesta de salud.")
+    if st.button("📝 Completar Encuesta"):
+        st.switch_page("pages/_Encuesta.py")
+    st.stop()
 # --- Sección de Medicamentos Actuales ---
 st.subheader("Tratamientos actuales")
 med_actuales = get_medicamentos(dni=dni, solo_actuales=True, conn=conn)
